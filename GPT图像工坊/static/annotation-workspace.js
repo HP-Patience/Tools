@@ -410,13 +410,17 @@
     renderAnnotationList();
   }
 
+  function uiText(key, fallback) {
+    return typeof window.t === 'function' ? window.t(key) : fallback;
+  }
+
   async function send() {
-    if (!state.options || typeof state.options.onSend !== 'function') return;
+    if (!state.options || typeof state.options.onSave !== 'function') return;
     const button = byId('annotationSendBtn');
     button.disabled = true;
-    button.textContent = 'Sending…';
+    button.textContent = uiText('saving', 'Saving…');
     try {
-      await state.options.onSend({
+      await state.options.onSave({
         blob: exportPngBlob(),
         filename: `annotated_${Date.now()}.png`,
         prompt: composePrompt(),
@@ -425,7 +429,7 @@
       close();
     } finally {
       button.disabled = false;
-      button.textContent = 'Send Edit';
+      button.textContent = uiText('save', 'Save');
     }
   }
 

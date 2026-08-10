@@ -817,7 +817,7 @@
               <button type="button" id="annotationUndoBtn">Undo</button>
               <button type="button" id="annotationDeleteBtn">Delete</button>
               <button type="button" id="annotationClearBtn">Clear</button>
-              <button type="button" id="annotationSendBtn">Send Edit</button>
+              <button type="button" id="annotationSendBtn" data-i18n="save">Save</button>
             </div>
           </aside>
         </div>
@@ -1024,6 +1024,7 @@ function toggleApiKey() {
 
 
 let uploadedImageObjectUrl = null;
+let editImageOverrideFile = null;
 
 function currentPrompt() {
   return document.getElementById('prompt').value.trim();
@@ -1035,8 +1036,54 @@ function openWorkspaceFromImage(imageUrl, sourceName) {
     imageUrl,
     sourceName,
     prompt: currentPrompt(),
-    onSend: submitAnnotatedEdit,
+    onSave: saveAnnotatedToMain,
   });
+}
+
+function renderUploadPreview(file) {
+  const preview = document.getElementById('uploadPreview');
+  const image = document.getElementById('uploadPreviewImage');
+  const button = document.getElementById('uploadPreviewButton');
+  if (uploadedImageObjectUrl) URL.revokeObjectURL(uploadedImageObjectUrl);
+  uploadedImageObjectUrl = null;
+  if (!file) {
+    preview.style.display = 'none';
+    image.removeAttribute('src');
+    button.onclick = null;
+    return;
+  }
+  uploadedImageObjectUrl = URL.createObjectURL(file);
+  image.src = uploadedImageObjectUrl;
+  preview.style.display = 'block';
+  button.onclick = () => openWorkspaceFromImage(uploadedImageObjectUrl, file.name || 'Uploaded image');
+}
+
+function selectedEditImageFile() {
+  const input = document.getElementById('editImageFile');
+  return (input.files && input.files[0]) || editImageOverrideFile;
+}
+
+function replaceEditImageWithBlob(blob, filename) {
+  const input = document.getElementById('editImageFile');
+  const file = new File([blob], filename || `annotated_${Date.now()}.png`, { type: blob.type || 'image/png' });
+  editImageOverrideFile = file;
+
+  try {
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    input.files = transfer.files;
+  } catch (error) {
+    // Some browsers restrict programmatic file input assignment; keep an internal file fallback.
+    console.warn('Unable to assign annotated image to file input; using internal fallback.', error);
+  }
+
+  renderUploadPreview(file);
+}
+
+async function saveAnnotatedToMain(payload) {
+  replaceEditImageWithBlob(payload.blob, payload.filename);
+  const promptBox = document.getElementById('prompt');
+  if (payload.prompt) promptBox.value = payload.prompt;
 }
 
 function renderImageGrid(images, altPrefix) {
@@ -1103,62 +1150,11 @@ function generate() {
 }
 
 
-async function submitAnnotatedEdit(payload) {
-  const model = document.getElementById('model').value;
-  const n = Number(document.getElementById('count').value);
-  const btn = document.getElementById('editBtn');
-  const generateBtn = document.getElementById('btn');
-  const result = document.getElementById('result');
-  const cap = document.getElementById('caption');
-
-  btn.disabled = true;
-  generateBtn.disabled = true;
-  cap.style.display = 'none';
-  result.innerHTML = `
-    <div class="loading">
-      <div class="loading-label" id="loadingLabel"></div>
-      <div class="loading-bar"></div>
-    </div>`;
-  const lbl = n > 1 ? t('generatingPlates', n) : t('editing');
-  document.getElementById('loadingLabel').innerHTML =
-    [...lbl].map(c => c === ' ' ? '<span>&nbsp;</span>' : `<span>${c}</span>`).join('');
-
-  const form = new FormData();
-  form.append('prompt', payload.prompt);
-  form.append('model', model);
-  form.append('n', String(n));
-  form.append('save_annotated', 'true');
-  form.append('image', payload.blob, payload.filename);
-
-  const t0 = Date.now();
-  try {
-    const response = await fetch('/api/edit', { method: 'POST', body: form });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || t('failed'));
-    const images = Array.isArray(data.images) && data.images.length ? data.images : [{ data_url: data.data_url }];
-    result.innerHTML = renderImageGrid(images, 'edited plate');
-    const sec = ((Date.now() - t0) / 1000).toFixed(1);
-    const plateLabel = images.length === 1 ? t('plateSingle') : t('plateMulti', images.length);
-    document.getElementById('cap-left').textContent = `${plateLabel} · ${data.model} · annotated edit`;
-    const saved = images.every(image => image.file_path) ? t('savedToOutput') : '';
-    const annotated = data.annotated_image && data.annotated_image.file_path ? ' · annotated saved' : '';
-    document.getElementById('cap-right').textContent = `${t('engraved', sec)}${saved}${annotated}`;
-    cap.style.display = 'flex';
-  } catch (error) {
-    result.innerHTML = `<div class="error">${error.message}</div>`;
-    throw error;
-  } finally {
-    btn.disabled = false;
-    generateBtn.disabled = false;
-  }
-}
-
 function editImage() {
   const prompt = document.getElementById('prompt').value.trim();
   const model  = document.getElementById('model').value;
   const n      = Number(document.getElementById('count').value);
-  const fileInput = document.getElementById('editImageFile');
-  const file = fileInput.files && fileInput.files[0];
+  const file = selectedEditImageFile();
   const btn    = document.getElementById('editBtn');
   const generateBtn = document.getElementById('btn');
   const result = document.getElementById('result');
@@ -1242,23 +1238,9 @@ document.getElementById('prompt').addEventListener('keydown', e => {
 });
 
 document.getElementById('editImageFile').addEventListener('change', () => {
+  editImageOverrideFile = null;
   const input = document.getElementById('editImageFile');
-  const file = input.files && input.files[0];
-  const preview = document.getElementById('uploadPreview');
-  const image = document.getElementById('uploadPreviewImage');
-  const button = document.getElementById('uploadPreviewButton');
-  if (uploadedImageObjectUrl) URL.revokeObjectURL(uploadedImageObjectUrl);
-  uploadedImageObjectUrl = null;
-  if (!file) {
-    preview.style.display = 'none';
-    image.removeAttribute('src');
-    button.onclick = null;
-    return;
-  }
-  uploadedImageObjectUrl = URL.createObjectURL(file);
-  image.src = uploadedImageObjectUrl;
-  preview.style.display = 'block';
-  button.onclick = () => openWorkspaceFromImage(uploadedImageObjectUrl, file.name || 'Uploaded image');
+  renderUploadPreview(input.files && input.files[0]);
 });
 
 applyLanguage();
