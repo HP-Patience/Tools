@@ -854,7 +854,7 @@ const translations = {
     unableLoadConfig: 'Unable to load configuration',
     unableSaveConfig: 'Unable to save configuration',
     uploadLabel: 'Image to edit',
-    uploadHelp: 'Optional. Upload an image, then use Edit Image.',
+    uploadHelp: 'Optional. Generate New ignores this image; Edit Selected Image sends it upstream.',
     openWorkspace: 'Open workspace',
     promptLabel: 'Prompt',
     promptPlaceholder: 'Describe what you wish to see…',
@@ -865,11 +865,13 @@ const translations = {
     count2: '2 plates',
     count3: '3 plates',
     count4: '4 plates',
-    generate: 'Generate',
-    editImage: 'Edit Image',
+    generate: 'Generate New',
+    editImage: 'Edit Selected Image',
     generating: 'Generating',
     editing: 'Editing',
     generatingPlates: n => `Generating ${n} plates`,
+    editingSelected: name => `Editing selected image: ${name}`,
+    textOnly: 'text only',
     hint: '⌘ / Ctrl + ↵',
     plate: 'Plate',
     placeholder: 'The image will appear here.',
@@ -903,7 +905,7 @@ const translations = {
     unableLoadConfig: '无法加载配置',
     unableSaveConfig: '无法保存配置',
     uploadLabel: '编辑图片',
-    uploadHelp: '可选。上传图片后，点击预览可打开标注工作台，也可直接用“编辑图片”。',
+    uploadHelp: '可选。点击“生成新图”不会使用这张图；点击“按上图编辑”才会把图片发给上游。',
     openWorkspace: '打开工作台',
     promptLabel: '提示词',
     promptPlaceholder: '描述你想看到的画面…',
@@ -914,11 +916,13 @@ const translations = {
     count2: '2 张',
     count3: '3 张',
     count4: '4 张',
-    generate: '生成',
-    editImage: '编辑图片',
+    generate: '生成新图',
+    editImage: '按上图编辑',
     generating: '生成中',
     editing: '编辑中',
     generatingPlates: n => `正在生成 ${n} 张`,
+    editingSelected: name => `正在编辑已选图片：${name}`,
+    textOnly: '纯文字生成',
     hint: '⌘ / Ctrl + 回车',
     plate: '作品',
     placeholder: '生成的图片会显示在这里。',
@@ -1135,7 +1139,7 @@ function generate() {
     result.innerHTML = renderImageGrid(images, 'plate');
     const sec = ((Date.now() - t0) / 1000).toFixed(1);
     const plateLabel = images.length === 1 ? t('plateSingle') : t('plateMulti', images.length);
-    document.getElementById('cap-left').textContent  = `${plateLabel} · ${d.model}`;
+    document.getElementById('cap-left').textContent  = `${plateLabel} · ${d.model} · ${t('textOnly')}`;
     const saved = images.every(image => image.file_path) ? t('savedToOutput') : '';
     document.getElementById('cap-right').textContent = `${t('engraved', sec)}${saved}`;
     cap.style.display = 'flex';
@@ -1175,7 +1179,7 @@ function editImage() {
       <div class="loading-label" id="loadingLabel"></div>
       <div class="loading-bar"></div>
     </div>`;
-  const lbl = n > 1 ? t('generatingPlates', n) : t('editing');
+  const lbl = t('editingSelected', file.name || 'image');
   document.getElementById('loadingLabel').innerHTML =
     [...lbl].map(c => c === ' ' ? '<span>&nbsp;</span>' : `<span>${c}</span>`).join('');
 
@@ -1197,7 +1201,7 @@ function editImage() {
     result.innerHTML = renderImageGrid(images, 'edited plate');
     const sec = ((Date.now() - t0) / 1000).toFixed(1);
     const plateLabel = images.length === 1 ? t('plateSingle') : t('plateMulti', images.length);
-    document.getElementById('cap-left').textContent  = `${plateLabel} · ${d.model} · edit`;
+    document.getElementById('cap-left').textContent  = `${plateLabel} · ${d.model} · edit · ${file.name || 'image'}`;
     const saved = images.every(image => image.file_path) ? t('savedToOutput') : '';
     document.getElementById('cap-right').textContent = `${t('engraved', sec)}${saved}`;
     cap.style.display = 'flex';
