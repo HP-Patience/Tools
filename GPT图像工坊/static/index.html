@@ -218,11 +218,46 @@
   }
   textarea::placeholder { color: #B5B0A4; font-style: italic; font-weight: 300; }
   textarea:focus { border-bottom-color: var(--accent); }
+  .upload-row {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) 1.5fr;
+    gap: 28px;
+    align-items: end;
+    padding-top: 24px;
+  }
+  .file-input {
+    width: 100%;
+    color: var(--ink-soft);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+  }
+  .file-input::file-selector-button {
+    margin-right: 14px;
+    padding: 9px 12px;
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--rule);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .file-input::file-selector-button:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg);
+  }
+  .upload-help {
+    color: var(--muted);
+    font-size: 13px;
+    font-style: italic;
+  }
 
   /* ── Controls row ──────────────────────────────────── */
   .controls {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr;
     gap: 48px;
     align-items: end;
     padding: 36px 0 32px;
@@ -282,6 +317,16 @@
   button:hover:not(:disabled) {
     background: var(--accent);
     border-color: var(--accent);
+  }
+  button.secondary {
+    background: transparent;
+    color: var(--ink);
+    border-color: var(--rule);
+  }
+  button.secondary:hover:not(:disabled) {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg);
   }
   button:disabled { opacity: 0.4; cursor: not-allowed; }
   button .arrow {
@@ -452,7 +497,7 @@
     .masthead { align-items: flex-start; gap: 16px; }
     .masthead .left, .masthead .right { flex-wrap: wrap; }
     .title-block { grid-template-columns: 1fr; gap: 24px; }
-    .settings-grid, .controls { grid-template-columns: 1fr; gap: 24px; }
+    .settings-grid, .controls, .upload-row { grid-template-columns: 1fr; gap: 24px; }
     .plate-grid { grid-template-columns: 1fr; padding: 20px; }
     .submit-row { flex-direction: column; align-items: flex-start; }
     textarea { min-height: 150px; font-size: 16px; }
@@ -511,6 +556,13 @@
         <span class="num">II.</span><span data-i18n="promptLabel">Prompt</span><span class="rule"></span>
       </div>
       <textarea id="prompt" class="reveal" placeholder="Describe what you wish to see…" data-i18n-placeholder="promptPlaceholder">A small red apple on a linen table, morning light, soft shadows</textarea>
+      <div class="upload-row reveal">
+        <div class="field">
+          <label for="editImageFile" data-i18n="uploadLabel">Image to edit</label>
+          <input id="editImageFile" class="file-input" type="file" accept="image/png,image/jpeg,image/webp">
+        </div>
+        <div class="upload-help" data-i18n="uploadHelp">Optional. Upload an image, then use Edit Image.</div>
+      </div>
     </section>
 
     <!-- Controls -->
@@ -518,17 +570,9 @@
       <div class="field reveal">
         <label data-i18n="model">Model</label>
         <select id="model">
+          <option value="gpt-image-2" selected>gpt-image-2</option>
           <option value="gpt-image-1.5">gpt-image-1.5</option>
-          <option value="gpt-image-2">gpt-image-2</option>
           <option value="grok-imagine-image">grok-imagine-image</option>
-        </select>
-      </div>
-      <div class="field reveal">
-        <label data-i18n="format">Format</label>
-        <select id="size">
-          <option value="256x256">256 × 256</option>
-          <option value="512x512" selected>512 × 512</option>
-          <option value="1024x1024">1024 × 1024</option>
         </select>
       </div>
       <div class="field reveal">
@@ -546,6 +590,9 @@
     <div class="submit-row">
       <button id="btn" class="reveal" onclick="generate()">
         <span data-i18n="generate">Generate</span> <span class="arrow">→</span>
+      </button>
+      <button id="editBtn" class="secondary reveal" onclick="editImage()">
+        <span data-i18n="editImage">Edit Image</span> <span class="arrow">↻</span>
       </button>
       <span class="hint reveal" data-i18n="hint">⌘ + ↵</span>
     </div>
@@ -594,23 +641,27 @@ const translations = {
     saved: 'Saved · active now',
     unableLoadConfig: 'Unable to load configuration',
     unableSaveConfig: 'Unable to save configuration',
+    uploadLabel: 'Image to edit',
+    uploadHelp: 'Optional. Upload an image, then use Edit Image.',
     promptLabel: 'Prompt',
     promptPlaceholder: 'Describe what you wish to see…',
     promptRequired: 'A prompt is required…',
     model: 'Model',
-    format: 'Format',
     count: 'Count',
     count1: '1 plate',
     count2: '2 plates',
     count3: '3 plates',
     count4: '4 plates',
     generate: 'Generate',
+    editImage: 'Edit Image',
     generating: 'Generating',
+    editing: 'Editing',
     generatingPlates: n => `Generating ${n} plates`,
     hint: '⌘ / Ctrl + ↵',
     plate: 'Plate',
     placeholder: 'The image will appear here.',
     failed: 'Failed',
+    editRequiresImage: 'Upload an image first.',
     plateSingle: 'Plate I',
     plateMulti: n => `Plates I–${n}`,
     savedToOutput: ' · saved to output/',
@@ -638,23 +689,27 @@ const translations = {
     saved: '已保存 · 立即生效',
     unableLoadConfig: '无法加载配置',
     unableSaveConfig: '无法保存配置',
+    uploadLabel: '编辑图片',
+    uploadHelp: '可选。上传图片后，点击“编辑图片”进行图生图修改。',
     promptLabel: '提示词',
     promptPlaceholder: '描述你想看到的画面…',
     promptRequired: '请输入提示词…',
     model: '模型',
-    format: '尺寸',
     count: '数量',
     count1: '1 张',
     count2: '2 张',
     count3: '3 张',
     count4: '4 张',
     generate: '生成',
+    editImage: '编辑图片',
     generating: '生成中',
+    editing: '编辑中',
     generatingPlates: n => `正在生成 ${n} 张`,
     hint: '⌘ / Ctrl + 回车',
     plate: '作品',
     placeholder: '生成的图片会显示在这里。',
     failed: '生成失败',
+    editRequiresImage: '请先上传一张图片。',
     plateSingle: '作品 I',
     plateMulti: n => `作品 I–${n}`,
     savedToOutput: ' · 已保存到 output/',
@@ -756,7 +811,6 @@ function toggleApiKey() {
 function generate() {
   const prompt = document.getElementById('prompt').value.trim();
   const model  = document.getElementById('model').value;
-  const size   = document.getElementById('size').value;
   const n      = Number(document.getElementById('count').value);
   const btn    = document.getElementById('btn');
   const result = document.getElementById('result');
@@ -780,7 +834,7 @@ function generate() {
   fetch('/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, model, size, n }),
+    body: JSON.stringify({ prompt, model, n }),
   })
   .then(r => r.json().then(d => ({ ok: r.ok, d })))
   .then(({ ok, d }) => {
@@ -792,7 +846,7 @@ function generate() {
       </div>`;
     const sec = ((Date.now() - t0) / 1000).toFixed(1);
     const plateLabel = images.length === 1 ? t('plateSingle') : t('plateMulti', images.length);
-    document.getElementById('cap-left').textContent  = `${plateLabel} · ${d.model} · ${d.size}`;
+    document.getElementById('cap-left').textContent  = `${plateLabel} · ${d.model}`;
     const saved = images.every(image => image.file_path) ? t('savedToOutput') : '';
     document.getElementById('cap-right').textContent = `${t('engraved', sec)}${saved}`;
     cap.style.display = 'flex';
@@ -806,6 +860,72 @@ function generate() {
   });
 }
 
+function editImage() {
+  const prompt = document.getElementById('prompt').value.trim();
+  const model  = document.getElementById('model').value;
+  const n      = Number(document.getElementById('count').value);
+  const fileInput = document.getElementById('editImageFile');
+  const file = fileInput.files && fileInput.files[0];
+  const btn    = document.getElementById('editBtn');
+  const generateBtn = document.getElementById('btn');
+  const result = document.getElementById('result');
+  const cap    = document.getElementById('caption');
+
+  if (!prompt) { flashEmpty(); return; }
+  if (!file) {
+    result.innerHTML = `<div class="error">${t('editRequiresImage')}</div>`;
+    return;
+  }
+
+  btn.disabled = true;
+  generateBtn.disabled = true;
+  btn.innerHTML = `${t('editing')} <span class="arrow">…</span>`;
+  cap.style.display = 'none';
+  result.innerHTML = `
+    <div class="loading">
+      <div class="loading-label" id="loadingLabel"></div>
+      <div class="loading-bar"></div>
+    </div>`;
+  const lbl = n > 1 ? t('generatingPlates', n) : t('editing');
+  document.getElementById('loadingLabel').innerHTML =
+    [...lbl].map(c => c === ' ' ? '<span>&nbsp;</span>' : `<span>${c}</span>`).join('');
+
+  const form = new FormData();
+  form.append('prompt', prompt);
+  form.append('model', model);
+  form.append('n', String(n));
+  form.append('image', file);
+
+  const t0 = Date.now();
+  fetch('/api/edit', {
+    method: 'POST',
+    body: form,
+  })
+  .then(r => r.json().then(d => ({ ok: r.ok, d })))
+  .then(({ ok, d }) => {
+    if (!ok) throw new Error(d.detail || t('failed'));
+    const images = Array.isArray(d.images) && d.images.length ? d.images : [{ data_url: d.data_url }];
+    result.innerHTML = `
+      <div class="plate-grid ${images.length === 1 ? 'single' : ''}">
+        ${images.map((image, index) => `<img src="${image.file_url || image.data_url}" alt="edited plate ${index + 1}">`).join('')}
+      </div>`;
+    const sec = ((Date.now() - t0) / 1000).toFixed(1);
+    const plateLabel = images.length === 1 ? t('plateSingle') : t('plateMulti', images.length);
+    document.getElementById('cap-left').textContent  = `${plateLabel} · ${d.model} · edit`;
+    const saved = images.every(image => image.file_path) ? t('savedToOutput') : '';
+    document.getElementById('cap-right').textContent = `${t('engraved', sec)}${saved}`;
+    cap.style.display = 'flex';
+  })
+  .catch(e => {
+    result.innerHTML = `<div class="error">${e.message}</div>`;
+  })
+  .finally(() => {
+    btn.disabled = false;
+    generateBtn.disabled = false;
+    btn.innerHTML = `<span data-i18n="editImage">${t('editImage')}</span> <span class="arrow">↻</span>`;
+  });
+}
+
 function flashEmpty() {
   const ta = document.getElementById('prompt');
   ta.style.borderBottomColor = 'var(--accent)';
@@ -816,21 +936,23 @@ function flashEmpty() {
   }, 1600);
 }
 
-document.getElementById('model').addEventListener('change', e => {
-  const isGrok = e.target.value === 'grok-imagine-image';
-  const size = document.getElementById('size');
+function updateModelOptions() {
+  const model = document.getElementById('model').value;
+  const isGrok = model === 'grok-imagine-image';
   const count = document.getElementById('count');
-  size.value = isGrok ? '1024x1024' : size.value;
-  count.value = isGrok ? '1' : count.value;
-  [...size.options].forEach(option => option.disabled = isGrok && option.value !== '1024x1024');
+
   [...count.options].forEach(option => option.disabled = isGrok && option.value !== '1');
-});
+  if (isGrok) count.value = '1';
+}
+
+document.getElementById('model').addEventListener('change', updateModelOptions);
 
 document.getElementById('prompt').addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') generate();
 });
 
 applyLanguage();
+updateModelOptions();
 loadConfig();
 </script>
 </body>

@@ -52,7 +52,6 @@ def generate_image(
     model: str,
     prompt: str,
     save_path: str | Path,
-    size: str = "1024x1024",
     n: int = 1,
     timeout: int = 180,
 ) -> Path | list[Path]:
@@ -60,12 +59,10 @@ def generate_image(
     b64_items = []
     while len(b64_items) < n:
         remaining = n - len(b64_items)
-        data = _post("/images/generations", {
-            "model": model,
-            "prompt": prompt,
-            "n": remaining,
-            "size": size,
-        }, timeout=timeout)
+        payload = {"model": model, "prompt": prompt}
+        if model != "gpt-image-2":
+            payload["n"] = remaining
+        data = _post("/images/generations", payload, timeout=timeout)
         batch = [item["b64_json"] for item in data.get("data", []) if "b64_json" in item]
         if not batch:
             raise RuntimeError(f"上游返回无 b64_json: {data}")
@@ -121,7 +118,6 @@ if __name__ == "__main__":
         model="gpt-image-1.5",
         prompt="A cute cat sitting on a windowsill, watercolor style",
         save_path="output/cat.png",
-        size="1024x1024",
         n=2,
     )
     print("saved ->", out)

@@ -39,8 +39,7 @@ def _request_config() -> tuple[str, dict[str, str]]:
 
 def generate_images_b64(
     prompt: str,
-    model: str = "gpt-image-1.5",
-    size: str = "1024x1024",
+    model: str = "gpt-image-2",
     n: int = 1,
     timeout: int = 180,
 ) -> list[str]:
@@ -49,7 +48,14 @@ def generate_images_b64(
     images = []
     while len(images) < n:
         remaining = n - len(images)
-        payload = {"model": model, "prompt": prompt, "n": remaining, "size": size}
+        # This project may point at a ChatGPT-account reverse proxy rather than
+        # the official OpenAI Images API. Such proxies often reject optional
+        # image parameters like size/quality/output_format/background and may
+        # also reject n. For GPT Image 2, keep the upstream payload minimal and
+        # loop locally to support Count > 1.
+        payload = {"model": model, "prompt": prompt}
+        if model != "gpt-image-2":
+            payload["n"] = remaining
         if model == "grok-imagine-image":
             payload["response_format"] = "b64_json"
         r = requests.post(
@@ -70,14 +76,59 @@ def generate_images_b64(
 
 def generate_image_b64(
     prompt: str,
-    model: str = "gpt-image-1.5",
-    size: str = "1024x1024",
+    model: str = "gpt-image-2",
     n: int = 1,
     timeout: int = 180,
 ) -> str:
     """生成图片，返回 base64 字符串（不含 data: 前缀）。"""
-    return generate_images_b64(prompt, model, size, n, timeout)[0]
+    return generate_images_b64(prompt, model, n, timeout)[0]
 
+
+
+def edit_images_b64(
+    image_bytes: bytes,
+    filename: str,
+    content_type: str,
+    prompt: str,
+    model: str = "gpt-image-2",
+    n: int = 1,
+    timeout: int = 180,
+) -> list[str]:
+    """编辑图片，返回 base64 字符串列表（不含 data: 前缀）。
+
+    ChatGPT-account reverse proxies often only support the minimal edit fields:
+    model, prompt, and image. Multi-image variants are implemented by looping.
+    """
+    base_url, headers = _request_config()
+    # Let requests set the multipart boundary itself; Content-Type from
+    # _request_config() is JSON-specific and would break multipart uploads.
+    headers = {"Authorization": headers["Authorization"]}
+    images = []
+    safe_filename = filename or "input.png"
+    safe_content_type = content_type or "application/octet-stream"
+    while len(images) < n:
+        files = {
+            "image": (safe_filename, image_bytes, safe_content_type),
+        }
+        data = {
+            "model": model,
+            "prompt": prompt,
+        }
+        r = requests.post(
+            f"{base_url}/images/edits",
+            headers=headers,
+            data=data,
+            files=files,
+            timeout=timeout,
+            verify=_VERIFY,
+            proxies=_NO_PROXY,
+        )
+        r.raise_for_status()
+        batch = [item["b64_json"] for item in r.json().get("data", []) if "b64_json" in item]
+        if not batch:
+            raise RuntimeError(f"上游返回无 b64_json: {r.text[:300]}")
+        images.extend(batch)
+    return images[:n]
 
 def list_models() -> list[str]:
     base_url, headers = _request_config()

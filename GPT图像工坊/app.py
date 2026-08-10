@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 
 import requests
 from dotenv import set_key
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -28,8 +28,7 @@ app.mount("/output", StaticFiles(directory=OUTPUT_DIR), name="output")
 
 class GenRequest(BaseModel):
     prompt: str
-    model: str = "gpt-image-1.5"
-    size: str = "1024x1024"
+    model: str = "gpt-image-2"
     n: int = 1
 
 
@@ -45,7 +44,6 @@ class GenResponse(BaseModel):
     data_url: str
     images: List[ImageItem]
     model: str
-    size: str
 
 
 class ApiConfig(BaseModel):
@@ -99,19 +97,34 @@ def _image_format(raw: bytes) -> tuple[str, str]:
     raise ValueError("上游返回了不支持的图片格式")
 
 
+def _save_b64_images(b64_list: list[str], prefix: str) -> list[ImageItem]:
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    images = []
+    for index, b64 in enumerate(b64_list, start=1):
+        raw = base64.b64decode(b64, validate=True)
+        extension, mime_type = _image_format(raw)
+        filename = f"{prefix}_{timestamp}_{index}.{extension}"
+        output_path = OUTPUT_DIR / filename
+        output_path.write_bytes(raw)
+        images.append(ImageItem(
+            b64=b64,
+            data_url=f"data:{mime_type};base64,{b64}",
+            file_path=f"output/{filename}",
+            file_url=f"/output/{filename}",
+        ))
+    return images
+
+
 @app.post("/api/generate", response_model=GenResponse)
 def generate(req: GenRequest):
     if not req.prompt.strip():
         raise HTTPException(400, "prompt 不能为空")
     if not 1 <= req.n <= 4:
         raise HTTPException(400, "n 必须在 1 到 4 之间")
-    if req.model == "grok-imagine-image" and (req.size != "1024x1024" or req.n != 1):
-        raise HTTPException(400, "grok-imagine-image 当前仅支持 1024x1024、1 张")
     try:
         b64_list = image_gen.generate_images_b64(
             prompt=req.prompt,
             model=req.model,
-            size=req.size,
             n=req.n,
         )
     except requests.Timeout:
@@ -121,27 +134,60 @@ def generate(req: GenRequest):
     except Exception as e:
         raise HTTPException(500, f"内部错误: {e}")
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-    images = []
-    for index, b64 in enumerate(b64_list, start=1):
-        raw = base64.b64decode(b64, validate=True)
-        extension, mime_type = _image_format(raw)
-        filename = f"generated_{timestamp}_{index}.{extension}"
-        output_path = OUTPUT_DIR / filename
-        output_path.write_bytes(raw)
-        images.append(ImageItem(
-            b64=b64,
-            data_url=f"data:{mime_type};base64,{b64}",
-            file_path=f"output/{filename}",
-            file_url=f"/output/{filename}",
-        ))
+    images = _save_b64_images(b64_list, "generated")
     first = images[0]
     return GenResponse(
         b64=first.b64,
         data_url=first.data_url,
         images=images,
         model=req.model,
-        size=req.size,
+    )
+
+
+@app.post("/api/edit", response_model=GenResponse)
+async def edit_image(
+    prompt: str = Form(...),
+    model: str = Form("gpt-image-2"),
+    n: int = Form(1),
+    image: UploadFile = File(...),
+):
+    if not prompt.strip():
+        raise HTTPException(400, "prompt 不能为空")
+    if not 1 <= n <= 4:
+        raise HTTPException(400, "n 必须在 1 到 4 之间")
+    content_type = image.content_type or ""
+    if not content_type.startswith("image/"):
+        raise HTTPException(400, "请上传图片文件")
+
+    image_bytes = await image.read()
+    if not image_bytes:
+        raise HTTPException(400, "上传图片不能为空")
+    if len(image_bytes) > 20 * 1024 * 1024:
+        raise HTTPException(400, "上传图片不能超过 20MB")
+
+    try:
+        b64_list = image_gen.edit_images_b64(
+            image_bytes=image_bytes,
+            filename=image.filename or "input.png",
+            content_type=content_type,
+            prompt=prompt,
+            model=model,
+            n=n,
+        )
+    except requests.Timeout:
+        raise HTTPException(504, "编辑超时（>180s），请重试")
+    except requests.HTTPError as e:
+        raise HTTPException(502, f"上游错误: {e.response.text[:200]}")
+    except Exception as e:
+        raise HTTPException(500, f"内部错误: {e}")
+
+    images = _save_b64_images(b64_list, "edited")
+    first = images[0]
+    return GenResponse(
+        b64=first.b64,
+        data_url=first.data_url,
+        images=images,
+        model=model,
     )
 
 
