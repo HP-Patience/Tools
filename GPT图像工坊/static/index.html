@@ -502,6 +502,158 @@
     .submit-row { flex-direction: column; align-items: flex-start; }
     textarea { min-height: 150px; font-size: 16px; }
   }
+
+  /* ── Upload Preview & Annotation Workspace ─────────── */
+  .upload-preview { margin-top: 18px; }
+  .upload-preview-card {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    padding: 10px;
+    letter-spacing: 0.08em;
+  }
+  .upload-preview-card img {
+    width: 96px;
+    height: 96px;
+    object-fit: cover;
+    border: 1px solid var(--rule);
+    background: var(--bg-deep);
+  }
+  .plate-grid img { cursor: zoom-in; }
+  .annotation-modal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    z-index: 50;
+    background: rgba(20, 20, 19, 0.72);
+    padding: 24px;
+  }
+  .annotation-modal.open { display: block; }
+  .annotation-panel {
+    width: min(1400px, 100%);
+    height: min(880px, calc(100vh - 48px));
+    margin: 0 auto;
+    background: var(--bg);
+    border: 1px solid var(--ink);
+    display: flex;
+    flex-direction: column;
+  }
+  .annotation-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .annotation-kicker {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .annotation-topbar h2 { margin: 4px 0 0; font-size: 28px; }
+  .annotation-body {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 76px minmax(420px, 1fr) 300px;
+  }
+  .annotation-tools {
+    border-right: 1px solid var(--rule);
+    padding: 12px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+  .annotation-tools button,
+  .annotation-actions button {
+    padding: 10px;
+    justify-content: center;
+    letter-spacing: 0.08em;
+  }
+  .annotation-tools button.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg);
+  }
+  .annotation-color,
+  .annotation-width {
+    display: grid;
+    gap: 6px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .annotation-stage {
+    min-width: 0;
+    min-height: 0;
+    padding: 18px;
+    overflow: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-deep);
+  }
+  .annotation-stage canvas {
+    background: white;
+    box-shadow: 0 18px 60px rgba(20, 20, 19, 0.22);
+  }
+  .annotation-side {
+    border-left: 1px solid var(--rule);
+    padding: 16px;
+    overflow: auto;
+  }
+  .annotation-side label,
+  .annotation-side h3 {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  #workspacePrompt {
+    width: 100%;
+    min-height: 110px;
+    margin: 10px 0 18px;
+    padding: 10px;
+    border: 1px solid var(--rule);
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.45 "Newsreader", serif;
+  }
+  .annotation-item {
+    border: 1px solid var(--rule);
+    padding: 10px;
+    margin-bottom: 10px;
+    background: var(--bg);
+  }
+  .annotation-item.selected { border-color: var(--accent); }
+  .annotation-item textarea {
+    width: 100%;
+    min-height: 58px;
+    border: 1px solid var(--rule);
+    padding: 8px;
+    margin-top: 8px;
+    background: var(--bg-deep);
+    color: var(--ink);
+  }
+  .annotation-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  #annotationSendBtn {
+    grid-column: 1 / -1;
+    background: var(--ink);
+    color: var(--bg);
+  }
+
 </style>
 </head>
 <body>
@@ -563,6 +715,12 @@
         </div>
         <div class="upload-help" data-i18n="uploadHelp">Optional. Upload an image, then use Edit Image.</div>
       </div>
+      <div id="uploadPreview" class="upload-preview" style="display:none">
+        <button id="uploadPreviewButton" class="upload-preview-card" type="button">
+          <img id="uploadPreviewImage" alt="Uploaded image preview">
+          <span data-i18n="openWorkspace">Open workspace</span>
+        </button>
+      </div>
     </section>
 
     <!-- Controls -->
@@ -614,12 +772,54 @@
       </div>
     </section>
 
+    <!-- Annotation Workspace -->
+    <div id="annotationModal" class="annotation-modal" aria-hidden="true">
+      <div class="annotation-panel" role="dialog" aria-modal="true" aria-labelledby="workspaceTitle">
+        <div class="annotation-topbar">
+          <div>
+            <div class="annotation-kicker">Image Workspace</div>
+            <h2 id="workspaceTitle">Image Workspace</h2>
+          </div>
+          <button class="secondary" type="button" onclick="AnnotationWorkspace.close()">Close</button>
+        </div>
+        <div class="annotation-body">
+          <div class="annotation-tools">
+            <button type="button" data-annotation-tool="select">↖</button>
+            <button type="button" data-annotation-tool="rect">□</button>
+            <button type="button" data-annotation-tool="circle">○</button>
+            <button type="button" data-annotation-tool="arrow">↗</button>
+            <button type="button" data-annotation-tool="brush">✎</button>
+            <button type="button" data-annotation-tool="text">T</button>
+            <label class="annotation-color"><span>Color</span><input id="annotationColor" type="color" value="#ef4444"></label>
+            <label class="annotation-width"><span>Width</span><input id="annotationWidth" type="range" min="1" max="16" value="4"></label>
+          </div>
+          <div class="annotation-stage">
+            <canvas id="annotationCanvas"></canvas>
+          </div>
+          <aside class="annotation-side">
+            <label for="workspacePrompt">Prompt</label>
+            <textarea id="workspacePrompt"></textarea>
+            <h3>Annotations</h3>
+            <div id="annotationList" class="annotation-list"></div>
+            <div class="annotation-actions">
+              <button type="button" id="annotationUndoBtn">Undo</button>
+              <button type="button" id="annotationDeleteBtn">Delete</button>
+              <button type="button" id="annotationClearBtn">Clear</button>
+              <button type="button" id="annotationSendBtn">Send Edit</button>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+
     <!-- Colophon -->
     <footer class="colophon">
       <span data-i18n="footerType">Set in Newsreader &amp; JetBrains Mono</span>
     </footer>
   </div>
 
+<script src="/static/vendor/fabric.min.js"></script>
+<script src="/static/annotation-workspace.js"></script>
 <script>
 const translations = {
   en: {
