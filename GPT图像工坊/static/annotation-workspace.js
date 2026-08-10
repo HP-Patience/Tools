@@ -56,7 +56,8 @@
     list.innerHTML = objects.length ? objects.map((obj, index) => `
       <div class="annotation-item ${active === obj ? 'selected' : ''}" data-annotation-id="${obj.annotationId}">
         <button type="button" class="secondary" data-select-annotation="${obj.annotationId}">${index + 1}. ${typeLabel(obj.annotationType)}</button>
-        <textarea data-note-for="${obj.annotationId}" placeholder="写给 AI 的说明">${escapeHtml(obj.note || '')}</textarea>
+        <div class="annotation-note-help">给这个红框/圈/箭头单独写要求；保存后会追加到主页 Prompt。</div>
+        <textarea data-note-for="${obj.annotationId}" placeholder="例如：删除这个红框内的下半部分，只保留上半部分。">${escapeHtml(obj.note || '')}</textarea>
       </div>`).join('') : '<p class="upload-help">还没有标注。</p>';
   }
 
