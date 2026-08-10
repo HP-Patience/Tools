@@ -600,9 +600,13 @@
     justify-content: center;
     background: var(--bg-deep);
   }
-  .annotation-stage canvas {
+  .annotation-stage .canvas-container {
     background: white;
     box-shadow: 0 18px 60px rgba(20, 20, 19, 0.22);
+  }
+  .annotation-stage canvas {
+    background: transparent !important;
+    box-shadow: none;
   }
   .annotation-side {
     border-left: 1px solid var(--rule);
