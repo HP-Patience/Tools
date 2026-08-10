@@ -5,7 +5,7 @@ import base64
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 from urllib.parse import urlparse
 
 import requests
@@ -44,6 +44,7 @@ class GenResponse(BaseModel):
     data_url: str
     images: List[ImageItem]
     model: str
+    annotated_image: Optional[ImageItem] = None
 
 
 class ApiConfig(BaseModel):
@@ -115,6 +116,21 @@ def _save_b64_images(b64_list: list[str], prefix: str) -> list[ImageItem]:
     return images
 
 
+def _save_raw_image(raw: bytes, prefix: str) -> ImageItem:
+    extension, mime_type = _image_format(raw)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    filename = f"{prefix}_{timestamp}.{extension}"
+    output_path = OUTPUT_DIR / filename
+    output_path.write_bytes(raw)
+    b64 = base64.b64encode(raw).decode("ascii")
+    return ImageItem(
+        b64=b64,
+        data_url=f"data:{mime_type};base64,{b64}",
+        file_path=f"output/{filename}",
+        file_url=f"/output/{filename}",
+    )
+
+
 @app.post("/api/generate", response_model=GenResponse)
 def generate(req: GenRequest):
     if not req.prompt.strip():
@@ -149,6 +165,7 @@ async def edit_image(
     prompt: str = Form(...),
     model: str = Form("gpt-image-2"),
     n: int = Form(1),
+    save_annotated: bool = Form(False),
     image: UploadFile = File(...),
 ):
     if not prompt.strip():
@@ -164,6 +181,15 @@ async def edit_image(
         raise HTTPException(400, "上传图片不能为空")
     if len(image_bytes) > 20 * 1024 * 1024:
         raise HTTPException(400, "上传图片不能超过 20MB")
+
+    annotated_image = None
+    if save_annotated:
+        try:
+            annotated_image = _save_raw_image(image_bytes, "annotated")
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        except Exception as e:
+            raise HTTPException(500, f"保存标注图失败: {e}")
 
     try:
         b64_list = image_gen.edit_images_b64(
@@ -188,6 +214,7 @@ async def edit_image(
         data_url=first.data_url,
         images=images,
         model=model,
+        annotated_image=annotated_image,
     )
 
 
