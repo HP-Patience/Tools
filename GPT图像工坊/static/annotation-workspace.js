@@ -123,8 +123,7 @@
     setTool('select');
   }
 
-  function makeArrow(start, end) {
-    const props = createAnnotationProps('arrow');
+  function makeArrow(start, end, props = createAnnotationProps('arrow')) {
     const angle = Math.atan2(end.y - start.y, end.x - start.x);
     const headLength = Math.max(14, state.width * 4);
     const line = new fabric.Line([start.x, start.y, end.x, end.y], {
@@ -133,6 +132,8 @@
       strokeLineCap: 'round',
       originX: 'center',
       originY: 'center',
+      selectable: false,
+      evented: false,
     });
     const head = new fabric.Triangle({
       left: end.x,
@@ -143,14 +144,59 @@
       angle: angle * 180 / Math.PI + 90,
       originX: 'center',
       originY: 'center',
+      selectable: false,
+      evented: false,
     });
     return new fabric.Group([line, head], props);
+  }
+
+  function activeAnnotationObjects() {
+    if (!state.canvas) return [];
+    const active = state.canvas.getActiveObject();
+    if (!active) return [];
+    if (active.type === 'activeSelection' && typeof active.getObjects === 'function') {
+      return active.getObjects().filter(obj => obj.annotationId);
+    }
+    return active.annotationId ? [active] : [];
+  }
+
+  function applyStyleToObject(obj) {
+    if (!obj) return;
+    obj.set({
+      color: state.color,
+      cornerColor: state.color,
+      borderColor: state.color,
+    });
+    if (obj.type === 'textbox' || obj.type === 'text') {
+      obj.set('fill', state.color);
+    } else if (obj.type === 'group' && typeof obj.getObjects === 'function') {
+      const headLength = Math.max(14, state.width * 4);
+      obj.getObjects().forEach(child => {
+        if ('stroke' in child) child.set({ stroke: state.color, strokeWidth: state.width });
+        if ('fill' in child) child.set('fill', state.color);
+        if (child.type === 'triangle') child.set({ width: headLength, height: headLength });
+      });
+    } else {
+      if ('stroke' in obj) obj.set({ stroke: state.color, strokeWidth: state.width });
+      if (obj.annotationType === 'brush') obj.set({ stroke: state.color, strokeWidth: state.width });
+    }
+    obj.setCoords();
+  }
+
+  function applyStyleToSelection() {
+    const objects = activeAnnotationObjects();
+    if (!objects.length) return false;
+    objects.forEach(applyStyleToObject);
+    state.canvas.requestRenderAll();
+    renderAnnotationList();
+    return true;
   }
 
   function attachCanvasEvents() {
     const canvas = state.canvas;
     let start = null;
     let preview = null;
+    let arrowProps = null;
 
     canvas.on('mouse:down', (event) => {
       if (state.tool === 'select' || state.tool === 'brush') return;
@@ -184,6 +230,10 @@
           strokeWidth: state.width,
         });
       }
+      if (state.tool === 'arrow') {
+        arrowProps = createAnnotationProps('arrow');
+        preview = makeArrow(start, { x: start.x + 1, y: start.y + 1 }, arrowProps);
+      }
       if (preview) {
         canvas.add(preview);
         canvas.setActiveObject(preview);
@@ -203,6 +253,12 @@
       if (state.tool === 'circle') {
         preview.set({ left, top, rx: width / 2, ry: height / 2 });
       }
+      if (state.tool === 'arrow') {
+        canvas.remove(preview);
+        preview = makeArrow(start, pointer, arrowProps);
+        canvas.add(preview);
+        canvas.setActiveObject(preview);
+      }
       canvas.requestRenderAll();
     });
 
@@ -211,7 +267,16 @@
       const pointer = canvas.getPointer(event.e);
       if (state.tool === 'arrow') {
         const distance = Math.hypot(pointer.x - start.x, pointer.y - start.y);
-        if (distance >= 4) finalizeObject(makeArrow(start, pointer));
+        if (distance < 4 && preview) {
+          canvas.remove(preview);
+          canvas.discardActiveObject();
+          canvas.requestRenderAll();
+          renderAnnotationList();
+        } else if (preview) {
+          canvas.setActiveObject(preview);
+          pushHistory();
+          renderAnnotationList();
+        }
       } else if (preview) {
         const bounds = preview.getBoundingRect();
         if (bounds.width < 4 && bounds.height < 4) {
@@ -223,6 +288,7 @@
       }
       start = null;
       preview = null;
+      arrowProps = null;
     });
 
     canvas.on('path:created', (event) => {
@@ -328,9 +394,9 @@
   }
 
   function deleteSelected() {
-    const active = state.canvas && state.canvas.getActiveObject();
-    if (!active) return;
-    state.canvas.remove(active);
+    const objects = activeAnnotationObjects();
+    if (!state.canvas || !objects.length) return;
+    objects.forEach(obj => state.canvas.remove(obj));
     state.canvas.discardActiveObject();
     pushHistory();
     renderAnnotationList();
@@ -372,10 +438,18 @@
     if (color) color.addEventListener('input', () => {
       state.color = color.value;
       setTool(state.tool);
+      applyStyleToSelection();
     });
     if (width) width.addEventListener('input', () => {
       state.width = Number(width.value);
       setTool(state.tool);
+      applyStyleToSelection();
+    });
+    if (color) color.addEventListener('change', () => {
+      if (activeAnnotationObjects().length) pushHistory();
+    });
+    if (width) width.addEventListener('change', () => {
+      if (activeAnnotationObjects().length) pushHistory();
     });
     const list = byId('annotationList');
     if (list) {
@@ -405,7 +479,19 @@
     if (clearBtn) clearBtn.addEventListener('click', clearAnnotations);
     if (sendBtn) sendBtn.addEventListener('click', send);
     document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' && byId('annotationModal') && byId('annotationModal').classList.contains('open')) close();
+      const modal = byId('annotationModal');
+      if (!modal || !modal.classList.contains('open')) return;
+      if (event.key === 'Escape') {
+        close();
+        return;
+      }
+      if (event.key !== 'Delete' && event.key !== 'Backspace') return;
+      const target = event.target;
+      const isTyping = target && (target.matches('input, textarea') || target.isContentEditable);
+      const active = state.canvas && state.canvas.getActiveObject();
+      if (isTyping || (active && active.isEditing)) return;
+      event.preventDefault();
+      deleteSelected();
     });
   });
 
