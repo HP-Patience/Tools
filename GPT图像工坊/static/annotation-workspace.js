@@ -60,6 +60,38 @@
       </div>`).join('') : '<p class="upload-help">还没有标注。</p>';
   }
 
+  function collectNotes() {
+    return annotationObjects().map((obj, index) => ({
+      id: obj.annotationId,
+      type: obj.annotationType,
+      color: obj.color || state.color,
+      note: (obj.note || '').trim(),
+      label: `${index + 1}. ${typeLabel(obj.annotationType)}`,
+    }));
+  }
+
+  function composePrompt() {
+    const basePrompt = byId('workspacePrompt').value.trim();
+    const lines = collectNotes().map((item, index) => `${index + 1}. ${item.color} ${typeLabel(item.type)}：${item.note || '请重点参考此处标注区域。'}`);
+    return lines.length ? `${basePrompt}\n\n标注说明：\n${lines.join('\n')}` : basePrompt;
+  }
+
+  function dataUrlToBlob(dataUrl) {
+    const [header, payload] = dataUrl.split(',');
+    const mime = header.match(/data:([^;]+)/)[1];
+    const binary = atob(payload);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
+  }
+
+  function exportPngBlob() {
+    if (!state.canvas) throw new Error('画布还没有准备好');
+    state.canvas.discardActiveObject();
+    state.canvas.requestRenderAll();
+    return dataUrlToBlob(state.canvas.toDataURL({ format: 'png', multiplier: 1 }));
+  }
+
   function pushHistory() {
     if (!state.canvas || state.suppressHistory) return;
     state.history.push(JSON.stringify(state.canvas.toDatalessJSON(['annotationId', 'annotationType', 'note', 'color'])));
@@ -218,6 +250,7 @@
       selection: true,
     });
     state.canvas = canvas;
+    const imageOptions = imageUrl.startsWith('blob:') || imageUrl.startsWith('data:') ? {} : { crossOrigin: 'anonymous' };
     fabric.Image.fromURL(imageUrl, (img) => {
       const maxW = 900;
       const maxH = 620;
@@ -239,7 +272,7 @@
       attachCanvasEvents();
       renderAnnotationList();
       setTool('select');
-    }, { crossOrigin: 'anonymous' });
+    }, imageOptions);
   }
 
   function open(options) {
@@ -282,6 +315,54 @@
     state.canvas.defaultCursor = tool === 'select' ? 'default' : 'crosshair';
   }
 
+  function undo() {
+    if (!state.canvas || state.history.length < 2) return;
+    state.history.pop();
+    const previous = state.history[state.history.length - 1];
+    state.suppressHistory = true;
+    state.canvas.loadFromJSON(previous, () => {
+      state.suppressHistory = false;
+      state.canvas.renderAll();
+      renderAnnotationList();
+    });
+  }
+
+  function deleteSelected() {
+    const active = state.canvas && state.canvas.getActiveObject();
+    if (!active) return;
+    state.canvas.remove(active);
+    state.canvas.discardActiveObject();
+    pushHistory();
+    renderAnnotationList();
+  }
+
+  function clearAnnotations() {
+    if (!state.canvas) return;
+    annotationObjects().forEach(obj => state.canvas.remove(obj));
+    state.canvas.discardActiveObject();
+    pushHistory();
+    renderAnnotationList();
+  }
+
+  async function send() {
+    if (!state.options || typeof state.options.onSend !== 'function') return;
+    const button = byId('annotationSendBtn');
+    button.disabled = true;
+    button.textContent = 'Sending…';
+    try {
+      await state.options.onSend({
+        blob: exportPngBlob(),
+        filename: `annotated_${Date.now()}.png`,
+        prompt: composePrompt(),
+        notes: collectNotes(),
+      });
+      close();
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Send Edit';
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('[data-annotation-tool]').forEach(btn => {
       btn.addEventListener('click', () => setTool(btn.dataset.annotationTool));
@@ -315,11 +396,26 @@
         if (obj) obj.note = noteInput.value;
       });
     }
+    const undoBtn = byId('annotationUndoBtn');
+    const deleteBtn = byId('annotationDeleteBtn');
+    const clearBtn = byId('annotationClearBtn');
+    const sendBtn = byId('annotationSendBtn');
+    if (undoBtn) undoBtn.addEventListener('click', undo);
+    if (deleteBtn) deleteBtn.addEventListener('click', deleteSelected);
+    if (clearBtn) clearBtn.addEventListener('click', clearAnnotations);
+    if (sendBtn) sendBtn.addEventListener('click', send);
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && byId('annotationModal') && byId('annotationModal').classList.contains('open')) close();
+    });
   });
 
   window.AnnotationWorkspace = {
     open,
     close,
     setTool,
+    undo,
+    deleteSelected,
+    clearAnnotations,
+    send,
   };
 })();
