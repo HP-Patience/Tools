@@ -726,7 +726,8 @@
       <div class="section-label reveal">
         <span class="num">II.</span><span data-i18n="promptLabel">Prompt</span><span class="rule"></span>
       </div>
-      <textarea id="prompt" class="reveal" placeholder="Describe what you wish to see…" data-i18n-placeholder="promptPlaceholder">A small red apple on a linen table, morning light, soft shadows</textarea>
+      <textarea id="prompt" class="reveal" placeholder="Describe what you wish to see…" data-i18n-placeholder="promptPlaceholder"></textarea>
+      <textarea id="editPromptOverride" hidden aria-hidden="true"></textarea>
       <div class="upload-row reveal">
         <div class="field">
           <label for="editImageFile" data-i18n="uploadLabel">Image to edit</label>
@@ -1094,7 +1095,14 @@ function replaceEditImageWithBlob(blob, filename) {
 async function saveAnnotatedToMain(payload) {
   replaceEditImageWithBlob(payload.blob, payload.filename);
   const promptBox = document.getElementById('prompt');
-  if (payload.prompt) promptBox.value = payload.prompt;
+  const hiddenPrompt = document.getElementById('editPromptOverride');
+  if (payload.visiblePrompt !== undefined) promptBox.value = payload.visiblePrompt;
+  hiddenPrompt.value = payload.prompt || '';
+}
+
+function effectiveEditPrompt() {
+  const hiddenPrompt = document.getElementById('editPromptOverride').value.trim();
+  return hiddenPrompt || currentPrompt();
 }
 
 function renderImageGrid(images, altPrefix) {
@@ -1162,7 +1170,7 @@ function generate() {
 
 
 function editImage() {
-  const prompt = document.getElementById('prompt').value.trim();
+  const prompt = effectiveEditPrompt();
   const model  = document.getElementById('model').value;
   const n      = Number(document.getElementById('count').value);
   const file = selectedEditImageFile();
@@ -1248,8 +1256,13 @@ document.getElementById('prompt').addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') generate();
 });
 
+document.getElementById('prompt').addEventListener('input', () => {
+  document.getElementById('editPromptOverride').value = '';
+});
+
 document.getElementById('editImageFile').addEventListener('change', () => {
   editImageOverrideFile = null;
+  document.getElementById('editPromptOverride').value = '';
   const input = document.getElementById('editImageFile');
   renderUploadPreview(input.files && input.files[0]);
 });

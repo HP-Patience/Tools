@@ -41,7 +41,25 @@
   }
 
   function typeLabel(type) {
-    return ({ rect: '矩形', circle: '圆形', arrow: '箭头', brush: '画笔', text: '文字' })[type] || type;
+    return ({ rect: '矩形框', circle: '圆形圈', arrow: '箭头', brush: '手绘线', text: '文字' })[type] || type;
+  }
+
+  function colorLabel(color) {
+    const value = String(color || '').toLowerCase();
+    const names = {
+      '#ef4444': '红色',
+      '#dc2626': '红色',
+      '#f97316': '橙色',
+      '#f59e0b': '黄色',
+      '#22c55e': '绿色',
+      '#16a34a': '绿色',
+      '#3b82f6': '蓝色',
+      '#2563eb': '蓝色',
+      '#8b5cf6': '紫色',
+      '#000000': '黑色',
+      '#ffffff': '白色',
+    };
+    return names[value] || '当前颜色';
   }
 
   function escapeHtml(value) {
@@ -66,6 +84,7 @@
       id: obj.annotationId,
       type: obj.annotationType,
       color: obj.color || state.color,
+      colorName: colorLabel(obj.color || state.color),
       note: (obj.note || '').trim(),
       label: `${index + 1}. ${typeLabel(obj.annotationType)}`,
     }));
@@ -73,8 +92,13 @@
 
   function composePrompt() {
     const basePrompt = byId('workspacePrompt').value.trim();
-    const lines = collectNotes().map((item, index) => `${index + 1}. ${item.color} ${typeLabel(item.type)}：${item.note || '请重点参考此处标注区域。'}`);
-    return lines.length ? `${basePrompt}\n\n标注说明：\n${lines.join('\n')}` : basePrompt;
+    const notes = collectNotes();
+    if (!notes.length) return basePrompt;
+    const lines = notes.map((item, index) => {
+      const target = `图片中第 ${index + 1} 个${item.colorName}${typeLabel(item.type)}标注圈出的区域`;
+      return `${index + 1}. ${target}：${item.note || '请重点处理这个标注区域。'}`;
+    });
+    return `${basePrompt}\n\n隐藏标注说明（给模型看）：\n请根据上传图片里可见的红框、圆圈、箭头或手绘线定位要处理的位置；这些标注线条只是定位辅助，不是最终图片内容，最终结果请去掉这些标注线条。\n${lines.join('\n')}`;
   }
 
   function dataUrlToBlob(dataUrl) {
@@ -425,6 +449,7 @@
         blob: exportPngBlob(),
         filename: `annotated_${Date.now()}.png`,
         prompt: composePrompt(),
+        visiblePrompt: byId('workspacePrompt').value.trim(),
         notes: collectNotes(),
       });
       close();
