@@ -504,7 +504,12 @@
   }
 
   /* ── Upload Preview & Annotation Workspace ─────────── */
-  .upload-preview { margin-top: 18px; }
+  .upload-preview {
+    margin-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
   .upload-preview-card {
     display: inline-flex;
     align-items: center;
@@ -731,16 +736,11 @@
       <div class="upload-row reveal">
         <div class="field">
           <label for="editImageFile" data-i18n="uploadLabel">Image to edit</label>
-          <input id="editImageFile" class="file-input" type="file" accept="image/png,image/jpeg,image/webp">
+          <input id="editImageFile" class="file-input" type="file" accept="image/png,image/jpeg,image/webp" multiple>
         </div>
         <div class="upload-help" data-i18n="uploadHelp">Optional. Upload an image, then use Edit Image.</div>
       </div>
-      <div id="uploadPreview" class="upload-preview" style="display:none">
-        <button id="uploadPreviewButton" class="upload-preview-card" type="button">
-          <img id="uploadPreviewImage" alt="Uploaded image preview">
-          <span data-i18n="openWorkspace">Open workspace</span>
-        </button>
-      </div>
+      <div id="uploadPreview" class="upload-preview" style="display:none"></div>
     </section>
 
     <!-- Controls -->
@@ -862,7 +862,7 @@ const translations = {
     unableLoadConfig: 'Unable to load configuration',
     unableSaveConfig: 'Unable to save configuration',
     uploadLabel: 'Image to edit',
-    uploadHelp: 'Optional. Generate New ignores this image; Edit Selected Image sends it upstream.',
+    uploadHelp: 'Optional. Up to 4 reference images · 20MB each · 60MB total. Generate New ignores these images; Edit Selected Image sends one optimized reference sheet upstream when multiple images are selected.',
     openWorkspace: 'Open workspace',
     promptLabel: 'Prompt',
     promptPlaceholder: 'Describe what you wish to see…',
@@ -879,12 +879,16 @@ const translations = {
     editing: 'Editing',
     generatingPlates: n => `Generating ${n} plates`,
     editingSelected: name => `Editing selected image: ${name}`,
+    referenceImages: n => `${n} reference images`,
+    uploadTooMany: n => `Select up to 4 reference images. You selected ${n}.`,
+    uploadFileTooLarge: name => `${name} is larger than 20MB.`,
+    uploadTotalTooLarge: mb => `Reference images are ${mb}MB total. Keep them within 60MB.`,
     textOnly: 'text only',
     hint: '⌘ / Ctrl + ↵',
     plate: 'Plate',
     placeholder: 'The image will appear here.',
     failed: 'Failed',
-    editRequiresImage: 'Upload an image first.',
+    editRequiresImage: 'Upload at least one image first.',
     plateSingle: 'Plate I',
     plateMulti: n => `Plates I–${n}`,
     savedToOutput: ' · saved to output/',
@@ -913,7 +917,7 @@ const translations = {
     unableLoadConfig: '无法加载配置',
     unableSaveConfig: '无法保存配置',
     uploadLabel: '编辑图片',
-    uploadHelp: '可选。点击“生成新图”不会使用这张图；点击“按上图编辑”才会把图片发给上游。',
+    uploadHelp: '可选。最多 4 张参考图 · 单张 20MB · 总大小 60MB。点击“生成新图”不会使用参考图；多图会先自动合成一张轻量参考板，再点击“按上图编辑”发给上游。',
     openWorkspace: '打开工作台',
     promptLabel: '提示词',
     promptPlaceholder: '描述你想看到的画面…',
@@ -930,12 +934,16 @@ const translations = {
     editing: '编辑中',
     generatingPlates: n => `正在生成 ${n} 张`,
     editingSelected: name => `正在编辑已选图片：${name}`,
+    referenceImages: n => `${n} 张参考图`,
+    uploadTooMany: n => `最多选择 4 张参考图；当前选择了 ${n} 张。`,
+    uploadFileTooLarge: name => `${name} 超过 20MB。`,
+    uploadTotalTooLarge: mb => `参考图总大小为 ${mb}MB，不能超过 60MB。`,
     textOnly: '纯文字生成',
     hint: '⌘ / Ctrl + 回车',
     plate: '作品',
     placeholder: '生成的图片会显示在这里。',
     failed: '生成失败',
-    editRequiresImage: '请先上传一张图片。',
+    editRequiresImage: '请先上传至少一张图片。',
     plateSingle: '作品 I',
     plateMulti: n => `作品 I–${n}`,
     savedToOutput: ' · 已保存到 output/',
@@ -1035,15 +1043,54 @@ function toggleApiKey() {
 }
 
 
-let uploadedImageObjectUrl = null;
+let uploadedImageObjectUrls = [];
 let editImageOverrideFile = null;
 
 function currentPrompt() {
   return document.getElementById('prompt').value.trim();
 }
 
+const MAX_EDIT_FILES = 4;
+const MAX_EDIT_FILE_BYTES = 20 * 1024 * 1024;
+const MAX_EDIT_TOTAL_BYTES = 60 * 1024 * 1024;
+
+function formatMB(bytes) {
+  return (bytes / 1024 / 1024).toFixed(1);
+}
+
+function validateEditImageFiles(filesOrFile) {
+  const files = normalizeFileList(filesOrFile);
+  if (files.length > MAX_EDIT_FILES) {
+    return { ok: false, message: t('uploadTooMany', files.length) };
+  }
+
+  let total = 0;
+  for (const file of files) {
+    total += file.size || 0;
+    if ((file.size || 0) > MAX_EDIT_FILE_BYTES) {
+      return { ok: false, message: t('uploadFileTooLarge', file.name || 'image') };
+    }
+  }
+
+  if (total > MAX_EDIT_TOTAL_BYTES) {
+    return { ok: false, message: t('uploadTotalTooLarge', formatMB(total)) };
+  }
+
+  return { ok: true, message: '' };
+}
+
+function rejectInvalidEditImages(filesOrFile) {
+  const validation = validateEditImageFiles(filesOrFile);
+  if (!validation.ok) {
+    alert(validation.message);
+    return true;
+  }
+  return false;
+}
+
 function openWorkspaceFromImage(imageUrl, sourceName) {
-  if (!currentPrompt()) { flashEmpty(); return; }
+  // 标注工作台不应该强制要求先写 Prompt：用户可能只是想先画框、箭头，
+  // 保存后再回到主页补充编辑要求。真正提交编辑时 editImage() 再校验 Prompt。
   AnnotationWorkspace.open({
     imageUrl,
     sourceName,
@@ -1052,27 +1099,58 @@ function openWorkspaceFromImage(imageUrl, sourceName) {
   });
 }
 
-function renderUploadPreview(file) {
+function normalizeFileList(filesOrFile) {
+  if (!filesOrFile) return [];
+  if (filesOrFile instanceof File) return [filesOrFile];
+  return Array.from(filesOrFile).filter(Boolean);
+}
+
+function renderUploadPreview(filesOrFile) {
   const preview = document.getElementById('uploadPreview');
-  const image = document.getElementById('uploadPreviewImage');
-  const button = document.getElementById('uploadPreviewButton');
-  if (uploadedImageObjectUrl) URL.revokeObjectURL(uploadedImageObjectUrl);
-  uploadedImageObjectUrl = null;
-  if (!file) {
+  uploadedImageObjectUrls.forEach(url => URL.revokeObjectURL(url));
+  uploadedImageObjectUrls = [];
+  preview.innerHTML = '';
+
+  const files = normalizeFileList(filesOrFile);
+  if (!files.length) {
     preview.style.display = 'none';
-    image.removeAttribute('src');
-    button.onclick = null;
     return;
   }
-  uploadedImageObjectUrl = URL.createObjectURL(file);
-  image.src = uploadedImageObjectUrl;
+
+  files.forEach((file, index) => {
+    const objectUrl = URL.createObjectURL(file);
+    uploadedImageObjectUrls.push(objectUrl);
+
+    const button = document.createElement('button');
+    button.className = 'upload-preview-card';
+    button.type = 'button';
+    button.title = file.name || `Reference ${index + 1}`;
+
+    const image = document.createElement('img');
+    image.src = objectUrl;
+    image.alt = file.name || `Uploaded image preview ${index + 1}`;
+
+    const label = document.createElement('span');
+    label.textContent = files.length === 1
+      ? t('openWorkspace')
+      : `${index + 1}. ${file.name || t('openWorkspace')}`;
+
+    button.append(image, label);
+    button.onclick = () => openWorkspaceFromImage(objectUrl, file.name || `Uploaded image ${index + 1}`);
+    preview.appendChild(button);
+  });
+
   preview.style.display = 'block';
-  button.onclick = () => openWorkspaceFromImage(uploadedImageObjectUrl, file.name || 'Uploaded image');
+}
+
+function selectedEditImageFiles() {
+  if (editImageOverrideFile) return [editImageOverrideFile];
+  const input = document.getElementById('editImageFile');
+  return normalizeFileList(input.files);
 }
 
 function selectedEditImageFile() {
-  const input = document.getElementById('editImageFile');
-  return (input.files && input.files[0]) || editImageOverrideFile;
+  return selectedEditImageFiles()[0] || null;
 }
 
 function replaceEditImageWithBlob(blob, filename) {
@@ -1173,15 +1251,24 @@ function editImage() {
   const prompt = effectiveEditPrompt();
   const model  = document.getElementById('model').value;
   const n      = Number(document.getElementById('count').value);
-  const file = selectedEditImageFile();
+  const files = selectedEditImageFiles();
+  const fileLabel = files.length === 1
+    ? (files[0].name || 'image')
+    : t('referenceImages', files.length);
   const btn    = document.getElementById('editBtn');
   const generateBtn = document.getElementById('btn');
   const result = document.getElementById('result');
   const cap    = document.getElementById('caption');
 
   if (!prompt) { flashEmpty(); return; }
-  if (!file) {
+  if (!files.length) {
     result.innerHTML = `<div class="error">${t('editRequiresImage')}</div>`;
+    return;
+  }
+  const validation = validateEditImageFiles(files);
+  if (!validation.ok) {
+    alert(validation.message);
+    result.innerHTML = `<div class="error">${validation.message}</div>`;
     return;
   }
 
@@ -1194,7 +1281,7 @@ function editImage() {
       <div class="loading-label" id="loadingLabel"></div>
       <div class="loading-bar"></div>
     </div>`;
-  const lbl = t('editingSelected', file.name || 'image');
+  const lbl = t('editingSelected', fileLabel);
   document.getElementById('loadingLabel').innerHTML =
     [...lbl].map(c => c === ' ' ? '<span>&nbsp;</span>' : `<span>${c}</span>`).join('');
 
@@ -1202,7 +1289,7 @@ function editImage() {
   form.append('prompt', prompt);
   form.append('model', model);
   form.append('n', String(n));
-  form.append('image', file);
+  files.forEach(file => form.append('image', file));
 
   const t0 = Date.now();
   fetch('/api/edit', {
@@ -1216,7 +1303,7 @@ function editImage() {
     result.innerHTML = renderImageGrid(images, 'edited plate');
     const sec = ((Date.now() - t0) / 1000).toFixed(1);
     const plateLabel = images.length === 1 ? t('plateSingle') : t('plateMulti', images.length);
-    document.getElementById('cap-left').textContent  = `${plateLabel} · ${d.model} · edit · ${file.name || 'image'}`;
+    document.getElementById('cap-left').textContent  = `${plateLabel} · ${d.model} · edit · ${fileLabel}`;
     const saved = images.every(image => image.file_path) ? t('savedToOutput') : '';
     document.getElementById('cap-right').textContent = `${t('engraved', sec)}${saved}`;
     cap.style.display = 'flex';
@@ -1264,7 +1351,12 @@ document.getElementById('editImageFile').addEventListener('change', () => {
   editImageOverrideFile = null;
   document.getElementById('editPromptOverride').value = '';
   const input = document.getElementById('editImageFile');
-  renderUploadPreview(input.files && input.files[0]);
+  if (rejectInvalidEditImages(input.files)) {
+    input.value = '';
+    renderUploadPreview([]);
+    return;
+  }
+  renderUploadPreview(input.files);
 });
 
 applyLanguage();

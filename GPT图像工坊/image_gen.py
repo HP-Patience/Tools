@@ -85,10 +85,8 @@ def generate_image_b64(
 
 
 
-def edit_images_b64(
-    image_bytes: bytes,
-    filename: str,
-    content_type: str,
+def edit_images_multi_b64(
+    image_files: list[tuple[bytes, str, str]],
     prompt: str,
     model: str = "gpt-image-2",
     n: int = 1,
@@ -96,20 +94,24 @@ def edit_images_b64(
 ) -> list[str]:
     """编辑图片，返回 base64 字符串列表（不含 data: 前缀）。
 
-    ChatGPT-account reverse proxies often only support the minimal edit fields:
-    model, prompt, and image. Multi-image variants are implemented by looping.
+    ``image_files`` 中每一项为 ``(bytes, filename, content_type)``。多张
+    参考图会以 multipart ``image[]`` 字段直接发给上游，用来验证
+    CPA/反代是否支持真正多图编辑；Count > 1 仍在本地循环调用。
     """
+    if not image_files:
+        raise ValueError("至少需要一张参考图")
+
     base_url, headers = _request_config()
     # Let requests set the multipart boundary itself; Content-Type from
     # _request_config() is JSON-specific and would break multipart uploads.
     headers = {"Authorization": headers["Authorization"]}
     images = []
-    safe_filename = filename or "input.png"
-    safe_content_type = content_type or "application/octet-stream"
     while len(images) < n:
-        files = {
-            "image": (safe_filename, image_bytes, safe_content_type),
-        }
+        upstream_image_field = "image[]" if len(image_files) > 1 else "image"
+        files = [
+            (upstream_image_field, (filename or f"input_{index}.png", raw, content_type or "application/octet-stream"))
+            for index, (raw, filename, content_type) in enumerate(image_files, start=1)
+        ]
         data = {
             "model": model,
             "prompt": prompt,
@@ -129,6 +131,25 @@ def edit_images_b64(
             raise RuntimeError(f"上游返回无 b64_json: {r.text[:300]}")
         images.extend(batch)
     return images[:n]
+
+
+def edit_images_b64(
+    image_bytes: bytes,
+    filename: str,
+    content_type: str,
+    prompt: str,
+    model: str = "gpt-image-2",
+    n: int = 1,
+    timeout: int = 180,
+) -> list[str]:
+    """编辑单张图片，返回 base64 字符串列表（不含 data: 前缀）。"""
+    return edit_images_multi_b64(
+        image_files=[(image_bytes, filename, content_type)],
+        prompt=prompt,
+        model=model,
+        n=n,
+        timeout=timeout,
+    )
 
 def list_models() -> list[str]:
     base_url, headers = _request_config()
