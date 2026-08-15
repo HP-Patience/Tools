@@ -1289,6 +1289,9 @@ function editImage() {
   form.append('prompt', prompt);
   form.append('model', model);
   form.append('n', String(n));
+  if (editImageOverrideFile) {
+    form.append('save_annotated', 'true');
+  }
   files.forEach(file => form.append('image', file));
 
   const t0 = Date.now();

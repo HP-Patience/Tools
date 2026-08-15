@@ -9,7 +9,7 @@ import urllib3
 from dotenv import load_dotenv
 
 ENV_FILE = Path(__file__).with_name(".env")
-DEFAULT_BASE_URL = "https://dss.josiny.com:2053/v1"
+DEFAULT_BASE_URL = ""
 load_dotenv(ENV_FILE)
 
 # 该服务使用自签名证书，禁用校验。仅限内部使用。
@@ -29,6 +29,8 @@ def get_config() -> dict[str, str]:
 
 def _request_config() -> tuple[str, dict[str, str]]:
     config = get_config()
+    if not config["base_url"]:
+        raise RuntimeError("尚未配置 IMAGE_API_BASE_URL，请先在页面中保存 API 配置")
     if not config["api_key"]:
         raise RuntimeError("尚未配置 IMAGE_API_KEY，请先在页面中保存 API 配置")
     return config["base_url"], {
