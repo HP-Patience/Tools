@@ -400,6 +400,176 @@
     max-height: none;
     object-fit: contain;
   }
+
+  .deck-layout {
+    width: 100%;
+    height: min(68vh, 620px);
+    min-height: 520px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 168px;
+    gap: 18px;
+    padding: 28px;
+    align-items: stretch;
+  }
+  .deck-stage {
+    min-height: 0;
+    height: 100%;
+  }
+  .deck-card {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 22px;
+    background: #fffdfa;
+    border: 1px solid var(--ink);
+    box-shadow: 0 18px 48px rgba(20, 20, 19, 0.12);
+    overflow: hidden;
+    user-select: text;
+  }
+  .deck-card-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: start;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--rule-fine);
+    padding-bottom: 10px;
+    flex: 0 0 auto;
+  }
+  .deck-card-title { color: var(--ink); }
+  .deck-card-status { color: var(--accent); text-align: right; }
+  .deck-prompt {
+    flex: 0 0 auto;
+    font-size: 15px;
+    color: var(--ink-soft);
+    font-style: italic;
+    max-height: 3.3em;
+    overflow: hidden;
+  }
+  .deck-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .deck-body .plate-grid {
+    padding: 0;
+    height: 100%;
+    align-items: center;
+    justify-items: center;
+  }
+  .deck-body .plate-grid.single {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .deck-body .plate-grid img {
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border: 1px solid var(--rule);
+    background: var(--bg-deep);
+    cursor: zoom-in;
+  }
+  .deck-body .plate-grid.single img {
+    max-height: 100%;
+  }
+  .deck-body .plate-grid:not(.single) img {
+    width: 100%;
+    max-height: min(34vh, 240px);
+  }
+  .deck-meta {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .deck-nav {
+    height: 100%;
+    max-height: 100%;
+    border-left: 1px solid var(--rule);
+    padding-left: 14px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    scrollbar-width: thin;
+  }
+  .deck-thumb {
+    width: 100%;
+    height: 108px;
+    min-height: 108px;
+    padding: 8px;
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    text-align: left;
+    display: grid;
+    grid-template-rows: 52px 12px 1fr;
+    gap: 5px;
+    cursor: pointer;
+    overflow: hidden;
+    align-items: start;
+    user-select: none;
+  }
+  .deck-thumb.is-active {
+    border-color: var(--accent);
+    background: rgba(201, 100, 66, 0.08);
+  }
+  .deck-thumb img {
+    width: 100%;
+    height: 52px;
+    object-fit: cover;
+    border: 1px solid var(--rule-fine);
+  }
+  .deck-thumb-placeholder {
+    height: 52px;
+    display: grid;
+    place-items: center;
+    border: 1px dashed var(--rule);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .deck-thumb-title {
+    display: block;
+    min-width: 0;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    line-height: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .deck-thumb-prompt {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    min-width: 0;
+    font-size: 12px;
+    line-height: 1.25;
+    color: var(--muted);
+    max-height: 2.5em;
+    overflow: hidden;
+    word-break: break-word;
+  }
+
   @keyframes fadeIn {
     from { opacity: 0; transform: scale(0.98); }
     to   { opacity: 1; transform: scale(1); }
@@ -499,6 +669,11 @@
     .title-block { grid-template-columns: 1fr; gap: 24px; }
     .settings-grid, .controls, .upload-row { grid-template-columns: 1fr; gap: 24px; }
     .plate-grid { grid-template-columns: 1fr; padding: 20px; }
+    .deck-layout { grid-template-columns: 1fr; height: auto; min-height: 0; padding: 18px; }
+    .deck-stage { height: 480px; }
+    .deck-card { padding: 16px; }
+    .deck-nav { height: auto; max-height: 168px; border-left: 0; border-top: 1px solid var(--rule); padding-left: 0; padding-top: 12px; flex-direction: row; overflow-x: auto; overflow-y: hidden; }
+    .deck-thumb { min-width: 136px; height: 108px; }
     .submit-row { flex-direction: column; align-items: flex-start; }
     textarea { min-height: 150px; font-size: 16px; }
   }
@@ -888,6 +1063,11 @@ const translations = {
     plate: 'Plate',
     placeholder: 'The image will appear here.',
     failed: 'Failed',
+    deckActive: 'Active',
+    deckDone: 'Done',
+    deckQueued: 'Generating',
+    deckError: 'Error',
+    tooManyTasks: n => `Wait for one task to finish first. ${n} tasks are already generating.`,
     editRequiresImage: 'Upload at least one image first.',
     plateSingle: 'Plate I',
     plateMulti: n => `Plates I–${n}`,
@@ -943,6 +1123,11 @@ const translations = {
     plate: '作品',
     placeholder: '生成的图片会显示在这里。',
     failed: '生成失败',
+    deckActive: '当前',
+    deckDone: '完成',
+    deckQueued: '生成中',
+    deckError: '错误',
+    tooManyTasks: n => `请先等一个任务完成；当前已有 ${n} 个任务正在生成。`,
     editRequiresImage: '请先上传至少一张图片。',
     plateSingle: '作品 I',
     plateMulti: n => `作品 I–${n}`,
@@ -985,6 +1170,7 @@ function toggleLanguage() {
   if (configStatusState) {
     setConfigStatus(t(configStatusState), configStatusState === 'apiKeyRequired', configStatusState);
   }
+  if (typeof renderDeck === 'function') renderDeck();
 }
 
 function setConfigStatus(message, isError = false, state = null) {
@@ -1045,6 +1231,10 @@ function toggleApiKey() {
 
 let uploadedImageObjectUrls = [];
 let editImageOverrideFile = null;
+let deckCards = [];
+let activeDeckCardId = null;
+let deckCounter = 1;
+const MAX_ACTIVE_TASKS = 3;
 
 function currentPrompt() {
   return document.getElementById('prompt').value.trim();
@@ -1088,13 +1278,14 @@ function rejectInvalidEditImages(filesOrFile) {
   return false;
 }
 
-function openWorkspaceFromImage(imageUrl, sourceName) {
+function openWorkspaceFromImage(imageUrl, sourceName, boundPrompt = null) {
   // 标注工作台不应该强制要求先写 Prompt：用户可能只是想先画框、箭头，
   // 保存后再回到主页补充编辑要求。真正提交编辑时 editImage() 再校验 Prompt。
+  // 如果图片来自某张结果卡片，使用卡片创建时绑定的 Prompt，而不是当前输入框里的最新 Prompt。
   AnnotationWorkspace.open({
     imageUrl,
     sourceName,
-    prompt: currentPrompt(),
+    prompt: boundPrompt ?? currentPrompt(),
     onSave: saveAnnotatedToMain,
   });
 }
@@ -1183,43 +1374,189 @@ function effectiveEditPrompt() {
   return hiddenPrompt || currentPrompt();
 }
 
-function renderImageGrid(images, altPrefix) {
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[char]);
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value).replace(/`/g, '&#96;');
+}
+
+function promptExcerpt(prompt, max = 120) {
+  const compact = String(prompt || '').replace(/\s+/g, ' ').trim();
+  return compact.length > max ? `${compact.slice(0, max)}…` : compact;
+}
+
+function runningDeckCount() {
+  return deckCards.filter(card => card.status === 'loading').length;
+}
+
+function deckStatusText(card) {
+  if (card.status === 'loading') return t('deckQueued');
+  if (card.status === 'error') return t('deckError');
+  return t('deckDone');
+}
+
+function loadingMarkup(label) {
+  const safeLabel = [...label].map(c => c === ' ' ? '<span>&nbsp;</span>' : `<span>${escapeHtml(c)}</span>`).join('');
+  return `
+    <div class="loading">
+      <div class="loading-label">${safeLabel}</div>
+      <div class="loading-bar"></div>
+    </div>`;
+}
+
+function renderImageGrid(images, altPrefix, boundPrompt = '') {
+  const encodedPrompt = encodeURIComponent(boundPrompt || '');
   const html = images.map((image, index) => {
     const src = image.file_url || image.data_url;
     const safeAlt = `${altPrefix} ${index + 1}`;
-    return `<img src="${src}" alt="${safeAlt}" title="Click to annotate" data-workspace-src="${src}" data-workspace-name="${safeAlt}">`;
+    return `<img src="${escapeAttr(src)}" alt="${escapeAttr(safeAlt)}" title="Click to annotate" data-workspace-src="${escapeAttr(src)}" data-workspace-name="${escapeAttr(safeAlt)}" data-workspace-prompt="${escapeAttr(encodedPrompt)}">`;
   }).join('');
-  setTimeout(() => {
-    document.querySelectorAll('[data-workspace-src]').forEach(img => {
-      img.onclick = () => openWorkspaceFromImage(img.dataset.workspaceSrc, img.dataset.workspaceName);
-    });
-  }, 0);
   return `<div class="plate-grid ${images.length === 1 ? 'single' : ''}">${html}</div>`;
+}
+
+function deckCardBody(card) {
+  if (card.status === 'loading') {
+    const label = card.type === 'edit' ? t('editing') : (card.n > 1 ? t('generatingPlates', card.n) : t('generating'));
+    return loadingMarkup(label);
+  }
+  if (card.status === 'error') {
+    return `<div class="error">${escapeHtml(card.error || t('failed'))}</div>`;
+  }
+  return renderImageGrid(card.images || [], card.type === 'edit' ? 'edited plate' : 'plate', card.hiddenPrompt || card.prompt || '');
+}
+
+function renderDeck() {
+  const result = document.getElementById('result');
+  const cap = document.getElementById('caption');
+  if (!deckCards.length) {
+    result.innerHTML = `
+      <div class="placeholder">
+        <span class="glyph">❦</span>
+        <span>${escapeHtml(t('placeholder'))}</span>
+      </div>`;
+    cap.style.display = 'none';
+    return;
+  }
+
+  if (!activeDeckCardId || !deckCards.some(card => card.id === activeDeckCardId)) {
+    activeDeckCardId = deckCards[deckCards.length - 1].id;
+  }
+
+  const active = deckCards.find(card => card.id === activeDeckCardId);
+
+  const cardsHtml = `
+      <article class="deck-card is-active" data-deck-id="${active.id}">
+        <div class="deck-card-header">
+          <div>
+            <div class="deck-card-title">#${active.id} · ${escapeHtml(active.type === 'edit' ? 'Edit' : 'Generate')}</div>
+            <div>${escapeHtml(active.model)} · ${active.n} ${active.n > 1 ? 'plates' : 'plate'}</div>
+          </div>
+          <div class="deck-card-status">${t('deckActive')} · ${deckStatusText(active)}</div>
+        </div>
+        <div class="deck-prompt">${escapeHtml(promptExcerpt(active.prompt, 180))}</div>
+        <div class="deck-body">${deckCardBody(active)}</div>
+        <div class="deck-meta">
+          <span>${escapeHtml(active.fileLabel || (active.type === 'edit' ? 'edit' : t('textOnly')))}</span>
+          <span>${active.elapsed ? escapeHtml(t('engraved', active.elapsed)) : escapeHtml(new Date(active.startedAt).toLocaleTimeString())}</span>
+        </div>
+      </article>`;
+
+  const navHtml = deckCards.slice().reverse().map(card => {
+    const thumb = card.images && card.images[0] ? (card.images[0].file_url || card.images[0].data_url) : '';
+    return `
+      <button type="button" class="deck-thumb ${card.id === activeDeckCardId ? 'is-active' : ''}" data-deck-id="${card.id}">
+        ${thumb ? `<img src="${escapeAttr(thumb)}" alt="${escapeAttr(`Task ${card.id} thumbnail`)}">` : `<div class="deck-thumb-placeholder">${escapeHtml(deckStatusText(card))}</div>`}
+        <span class="deck-thumb-title">#${card.id} · ${escapeHtml(card.model)}</span>
+        <span class="deck-thumb-prompt">${escapeHtml(promptExcerpt(card.prompt, 54))}</span>
+      </button>`;
+  }).join('');
+
+  result.innerHTML = `
+    <div class="deck-layout">
+      <div class="deck-stage" aria-label="Active image card">
+        ${cardsHtml}
+      </div>
+      <aside class="deck-nav" aria-label="Image thumbnails">${navHtml}</aside>
+    </div>`;
+
+  result.querySelectorAll('.deck-thumb[data-deck-id]').forEach(element => {
+    element.addEventListener('click', () => {
+      activateDeckCard(Number(element.dataset.deckId));
+    });
+  });
+  result.querySelectorAll('[data-workspace-src]').forEach(img => {
+    img.addEventListener('click', event => {
+      event.stopPropagation();
+      const card = img.closest('.deck-card');
+      if (card && !card.classList.contains('is-active')) {
+        activateDeckCard(Number(card.dataset.deckId));
+        return;
+      }
+      const prompt = img.dataset.workspacePrompt ? decodeURIComponent(img.dataset.workspacePrompt) : '';
+      openWorkspaceFromImage(img.dataset.workspaceSrc, img.dataset.workspaceName, prompt);
+    });
+  });
+
+  const plateLabel = active.images && active.images.length > 1 ? t('plateMulti', active.images.length) : t('plateSingle');
+  document.getElementById('cap-left').textContent = `#${active.id} · ${plateLabel} · ${active.model} · ${active.type === 'edit' ? 'edit' : t('textOnly')}`;
+  const saved = active.images && active.images.length && active.images.every(image => image.file_path) ? t('savedToOutput') : '';
+  document.getElementById('cap-right').textContent = active.status === 'loading'
+    ? deckStatusText(active)
+    : active.status === 'error'
+      ? deckStatusText(active)
+      : `${t('engraved', active.elapsed || '0.0')}${saved}`;
+  cap.style.display = 'flex';
+}
+
+function activateDeckCard(id) {
+  if (activeDeckCardId === id) return;
+  activeDeckCardId = id;
+  renderDeck();
+}
+
+function addDeckCard(card) {
+  deckCards.push(card);
+  activeDeckCardId = card.id;
+  renderDeck();
+}
+
+function updateDeckCard(id, patch) {
+  const card = deckCards.find(item => item.id === id);
+  if (!card) return;
+  Object.assign(card, patch);
+  renderDeck();
 }
 
 function generate() {
   const prompt = document.getElementById('prompt').value.trim();
   const model  = document.getElementById('model').value;
   const n      = Number(document.getElementById('count').value);
-  const btn    = document.getElementById('btn');
-  const result = document.getElementById('result');
-  const cap    = document.getElementById('caption');
 
   if (!prompt) { flashEmpty(); return; }
+  const running = runningDeckCount();
+  if (running >= MAX_ACTIVE_TASKS) {
+    alert(t('tooManyTasks', running));
+    return;
+  }
 
-  btn.disabled = true;
-  btn.innerHTML = `${t('generating')} <span class="arrow">…</span>`;
-  cap.style.display = 'none';
-  result.innerHTML = `
-    <div class="loading">
-      <div class="loading-label" id="loadingLabel"></div>
-      <div class="loading-bar"></div>
-    </div>`;
-  const lbl = n > 1 ? t('generatingPlates', n) : t('generating');
-  document.getElementById('loadingLabel').innerHTML =
-    [...lbl].map(c => c === ' ' ? '<span>&nbsp;</span>' : `<span>${c}</span>`).join('');
+  const cardId = deckCounter++;
+  const card = {
+    id: cardId,
+    type: 'generate',
+    status: 'loading',
+    prompt,
+    model,
+    n,
+    fileLabel: t('textOnly'),
+    startedAt: Date.now(),
+    images: [],
+  };
+  addDeckCard(card);
 
-  const t0 = Date.now();
   fetch('/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1229,61 +1566,63 @@ function generate() {
   .then(({ ok, d }) => {
     if (!ok) throw new Error(d.detail || t('failed'));
     const images = Array.isArray(d.images) && d.images.length ? d.images : [{ data_url: d.data_url }];
-    result.innerHTML = renderImageGrid(images, 'plate');
-    const sec = ((Date.now() - t0) / 1000).toFixed(1);
-    const plateLabel = images.length === 1 ? t('plateSingle') : t('plateMulti', images.length);
-    document.getElementById('cap-left').textContent  = `${plateLabel} · ${d.model} · ${t('textOnly')}`;
-    const saved = images.every(image => image.file_path) ? t('savedToOutput') : '';
-    document.getElementById('cap-right').textContent = `${t('engraved', sec)}${saved}`;
-    cap.style.display = 'flex';
+    updateDeckCard(cardId, {
+      status: 'done',
+      images,
+      model: d.model || model,
+      elapsed: ((Date.now() - card.startedAt) / 1000).toFixed(1),
+    });
   })
   .catch(e => {
-    result.innerHTML = `<div class="error">${e.message}</div>`;
-  })
-  .finally(() => {
-    btn.disabled = false;
-    btn.innerHTML = `<span data-i18n="generate">${t('generate')}</span> <span class="arrow">→</span>`;
+    updateDeckCard(cardId, {
+      status: 'error',
+      error: e.message,
+      elapsed: ((Date.now() - card.startedAt) / 1000).toFixed(1),
+    });
   });
 }
 
 
 function editImage() {
   const prompt = effectiveEditPrompt();
+  const visiblePrompt = currentPrompt();
   const model  = document.getElementById('model').value;
   const n      = Number(document.getElementById('count').value);
   const files = selectedEditImageFiles();
   const fileLabel = files.length === 1
     ? (files[0].name || 'image')
     : t('referenceImages', files.length);
-  const btn    = document.getElementById('editBtn');
-  const generateBtn = document.getElementById('btn');
-  const result = document.getElementById('result');
-  const cap    = document.getElementById('caption');
 
   if (!prompt) { flashEmpty(); return; }
   if (!files.length) {
-    result.innerHTML = `<div class="error">${t('editRequiresImage')}</div>`;
+    alert(t('editRequiresImage'));
     return;
   }
   const validation = validateEditImageFiles(files);
   if (!validation.ok) {
     alert(validation.message);
-    result.innerHTML = `<div class="error">${validation.message}</div>`;
+    return;
+  }
+  const running = runningDeckCount();
+  if (running >= MAX_ACTIVE_TASKS) {
+    alert(t('tooManyTasks', running));
     return;
   }
 
-  btn.disabled = true;
-  generateBtn.disabled = true;
-  btn.innerHTML = `${t('editing')} <span class="arrow">…</span>`;
-  cap.style.display = 'none';
-  result.innerHTML = `
-    <div class="loading">
-      <div class="loading-label" id="loadingLabel"></div>
-      <div class="loading-bar"></div>
-    </div>`;
-  const lbl = t('editingSelected', fileLabel);
-  document.getElementById('loadingLabel').innerHTML =
-    [...lbl].map(c => c === ' ' ? '<span>&nbsp;</span>' : `<span>${c}</span>`).join('');
+  const cardId = deckCounter++;
+  const card = {
+    id: cardId,
+    type: 'edit',
+    status: 'loading',
+    prompt: visiblePrompt || prompt,
+    hiddenPrompt: prompt,
+    model,
+    n,
+    fileLabel,
+    startedAt: Date.now(),
+    images: [],
+  };
+  addDeckCard(card);
 
   const form = new FormData();
   form.append('prompt', prompt);
@@ -1294,7 +1633,6 @@ function editImage() {
   }
   files.forEach(file => form.append('image', file));
 
-  const t0 = Date.now();
   fetch('/api/edit', {
     method: 'POST',
     body: form,
@@ -1303,23 +1641,23 @@ function editImage() {
   .then(({ ok, d }) => {
     if (!ok) throw new Error(d.detail || t('failed'));
     const images = Array.isArray(d.images) && d.images.length ? d.images : [{ data_url: d.data_url }];
-    result.innerHTML = renderImageGrid(images, 'edited plate');
-    const sec = ((Date.now() - t0) / 1000).toFixed(1);
-    const plateLabel = images.length === 1 ? t('plateSingle') : t('plateMulti', images.length);
-    document.getElementById('cap-left').textContent  = `${plateLabel} · ${d.model} · edit · ${fileLabel}`;
-    const saved = images.every(image => image.file_path) ? t('savedToOutput') : '';
-    document.getElementById('cap-right').textContent = `${t('engraved', sec)}${saved}`;
-    cap.style.display = 'flex';
+    updateDeckCard(cardId, {
+      status: 'done',
+      images,
+      model: d.model || model,
+      annotatedImage: d.annotated_image || null,
+      elapsed: ((Date.now() - card.startedAt) / 1000).toFixed(1),
+    });
   })
   .catch(e => {
-    result.innerHTML = `<div class="error">${e.message}</div>`;
-  })
-  .finally(() => {
-    btn.disabled = false;
-    generateBtn.disabled = false;
-    btn.innerHTML = `<span data-i18n="editImage">${t('editImage')}</span> <span class="arrow">↻</span>`;
+    updateDeckCard(cardId, {
+      status: 'error',
+      error: e.message,
+      elapsed: ((Date.now() - card.startedAt) / 1000).toFixed(1),
+    });
   });
 }
+
 
 function flashEmpty() {
   const ta = document.getElementById('prompt');

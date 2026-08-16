@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import json
 import os
 from datetime import datetime
 from io import BytesIO
@@ -41,6 +42,8 @@ class ImageItem(BaseModel):
     data_url: str
     file_path: str
     file_url: str
+    metadata_path: Optional[str] = None
+    metadata_url: Optional[str] = None
 
 
 class GenResponse(BaseModel):
@@ -102,37 +105,70 @@ def _image_format(raw: bytes) -> tuple[str, str]:
     raise ValueError("上游返回了不支持的图片格式")
 
 
-def _save_b64_images(b64_list: list[str], prefix: str) -> list[ImageItem]:
+def _metadata_paths_for_image(image: ImageItem) -> tuple[Path, str, str]:
+    image_path = OUTPUT_DIR / Path(image.file_path).name
+    metadata_path = image_path.with_suffix(".json")
+    metadata_filename = metadata_path.name
+    return metadata_path, f"output/{metadata_filename}", f"/output/{metadata_filename}"
+
+
+def _save_image_metadata(image: ImageItem, metadata: Optional[dict]) -> None:
+    if not metadata:
+        return
+    metadata_path, metadata_file_path, metadata_file_url = _metadata_paths_for_image(image)
+    payload = {
+        **metadata,
+        "image_file_path": image.file_path,
+        "image_file_url": image.file_url,
+        "saved_at": datetime.now().isoformat(timespec="seconds"),
+    }
+    metadata_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    image.metadata_path = metadata_file_path
+    image.metadata_url = metadata_file_url
+
+
+def _save_b64_images(b64_list: list[str], prefix: str, metadata: Optional[dict] = None) -> list[ImageItem]:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     images = []
+    total = len(b64_list)
     for index, b64 in enumerate(b64_list, start=1):
         raw = base64.b64decode(b64, validate=True)
         extension, mime_type = _image_format(raw)
         filename = f"{prefix}_{timestamp}_{index}.{extension}"
         output_path = OUTPUT_DIR / filename
         output_path.write_bytes(raw)
-        images.append(ImageItem(
+        image = ImageItem(
             b64=b64,
             data_url=f"data:{mime_type};base64,{b64}",
             file_path=f"output/{filename}",
             file_url=f"/output/{filename}",
-        ))
+        )
+        per_image_metadata = None
+        if metadata:
+            per_image_metadata = {
+                **metadata,
+                "result_index": index,
+                "result_count": total,
+            }
+        _save_image_metadata(image, per_image_metadata)
+        images.append(image)
     return images
 
-
-def _save_raw_image(raw: bytes, prefix: str) -> ImageItem:
+def _save_raw_image(raw: bytes, prefix: str, metadata: Optional[dict] = None) -> ImageItem:
     extension, mime_type = _image_format(raw)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     filename = f"{prefix}_{timestamp}.{extension}"
     output_path = OUTPUT_DIR / filename
     output_path.write_bytes(raw)
     b64 = base64.b64encode(raw).decode("ascii")
-    return ImageItem(
+    image = ImageItem(
         b64=b64,
         data_url=f"data:{mime_type};base64,{b64}",
         file_path=f"output/{filename}",
         file_url=f"/output/{filename}",
     )
+    _save_image_metadata(image, metadata)
+    return image
 
 
 def _fit_rgb_image(raw: bytes, max_side: int) -> Image.Image:
@@ -235,7 +271,12 @@ def generate(req: GenRequest):
     except Exception as e:
         raise HTTPException(500, f"内部错误: {e}")
 
-    images = _save_b64_images(b64_list, "generated")
+    images = _save_b64_images(b64_list, "generated", {
+        "kind": "generated",
+        "prompt": req.prompt,
+        "model": req.model,
+        "requested_count": req.n,
+    })
     first = images[0]
     return GenResponse(
         b64=first.b64,
@@ -289,27 +330,34 @@ async def edit_image(
         if len(image_files) != 1:
             raise HTTPException(400, "保存标注图时只能提交一张图片")
         try:
-            annotated_image = _save_raw_image(image_files[0][0], "annotated")
+            annotated_image = _save_raw_image(image_files[0][0], "annotated", {
+                "kind": "annotated_input",
+                "prompt": prompt,
+                "model": model,
+                "requested_count": n,
+            })
         except ValueError as e:
             raise HTTPException(400, str(e))
         except Exception as e:
             raise HTTPException(500, f"保存标注图失败: {e}")
 
+    upstream_prompt = prompt
     try:
         if len(image_files) == 1:
             b64_list = image_gen.edit_images_multi_b64(
                 image_files=image_files,
-                prompt=prompt,
+                prompt=upstream_prompt,
                 model=model,
                 n=n,
             )
         else:
             sheet_bytes, sheet_filename, sheet_content_type = _compose_reference_sheet(image_files)
+            upstream_prompt = _augment_prompt_for_reference_sheet(prompt, len(image_files))
             b64_list = image_gen.edit_images_b64(
                 image_bytes=sheet_bytes,
                 filename=sheet_filename,
                 content_type=sheet_content_type,
-                prompt=_augment_prompt_for_reference_sheet(prompt, len(image_files)),
+                prompt=upstream_prompt,
                 model=model,
                 n=n,
             )
@@ -320,7 +368,16 @@ async def edit_image(
     except Exception as e:
         raise HTTPException(500, f"内部错误: {e}")
 
-    images = _save_b64_images(b64_list, "edited")
+    images = _save_b64_images(b64_list, "edited", {
+        "kind": "edited",
+        "prompt": prompt,
+        "upstream_prompt": upstream_prompt,
+        "model": model,
+        "requested_count": n,
+        "reference_image_count": len(image_files),
+        "saved_annotated_input": bool(annotated_image),
+        "annotated_image_path": annotated_image.file_path if annotated_image else None,
+    })
     first = images[0]
     return GenResponse(
         b64=first.b64,
