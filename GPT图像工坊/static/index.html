@@ -207,17 +207,36 @@
     border: none;
     border-bottom: 1px solid var(--rule);
     color: var(--ink);
-    font-family: "Newsreader", serif;
-    font-size: 17px;
-    font-weight: 400;
-    line-height: 1.6;
-    letter-spacing: -0.005em;
+    font: inherit;
+    letter-spacing: inherit;
     outline: none;
     resize: vertical;
     transition: border-color 0.25s;
   }
   textarea::placeholder { color: #B5B0A4; font-style: italic; font-weight: 300; }
   textarea:focus { border-bottom-color: var(--accent); }
+  .prompt-expand-button {
+    width: 24px;
+    height: 24px;
+    margin-left: 8px;
+    padding: 0;
+    display: inline-grid;
+    place-items: center;
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--rule-fine);
+  }
+  .prompt-expand-button svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+    stroke: currentColor;
+  }
+  .prompt-expand-button:hover:not(:disabled) {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg);
+  }
   .upload-row {
     display: grid;
     grid-template-columns: minmax(220px, 1fr) 1.5fr;
@@ -654,6 +673,67 @@
     color: var(--muted);
   }
 
+  /* ── Prompt modal ───────────────────────────────────── */
+  body.modal-open { overflow: hidden; }
+  .prompt-modal[hidden] { display: none; }
+  .prompt-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: grid;
+    place-items: center;
+    padding: 28px;
+  }
+  .prompt-modal__scrim {
+    position: absolute;
+    inset: 0;
+    background: rgba(20, 20, 19, 0.34);
+    backdrop-filter: blur(4px);
+  }
+  .prompt-modal__panel {
+    position: relative;
+    width: min(920px, 100%);
+    max-height: min(78vh, 760px);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 22px 26px 24px;
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    box-shadow: 0 28px 90px rgba(20, 20, 19, 0.22);
+  }
+  .prompt-modal__head,
+  .prompt-modal__actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .prompt-modal__title {
+    margin: 0;
+    font: inherit;
+  }
+  .prompt-modal__close {
+    padding: 6px 10px;
+    background: transparent;
+    color: var(--muted);
+    border-color: var(--rule-fine);
+    font-size: 9px;
+    letter-spacing: 0.14em;
+  }
+  .prompt-modal__textarea {
+    min-height: min(52vh, 520px);
+    max-height: 58vh;
+    padding: 14px 0;
+  }
+  .prompt-modal__hint {
+    color: var(--muted);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
   /* ── Page-load reveal ──────────────────────────────── */
   .reveal { opacity: 0; transform: translateY(8px); animation: reveal 0.7s ease-out forwards; }
   .reveal:nth-of-type(1) { animation-delay: 0.05s; }
@@ -675,7 +755,11 @@
     .deck-nav { height: auto; max-height: 168px; border-left: 0; border-top: 1px solid var(--rule); padding-left: 0; padding-top: 12px; flex-direction: row; overflow-x: auto; overflow-y: hidden; }
     .deck-thumb { min-width: 136px; height: 108px; }
     .submit-row { flex-direction: column; align-items: flex-start; }
-    textarea { min-height: 150px; font-size: 16px; }
+    textarea { min-height: 150px; }
+    .prompt-modal { padding: 16px; }
+    .prompt-modal__panel { max-height: 86vh; padding: 18px; }
+    .prompt-modal__head, .prompt-modal__actions { align-items: flex-start; flex-direction: column; }
+    .prompt-modal__textarea { min-height: 48vh; }
   }
 
   /* ── Upload Preview & Annotation Workspace ─────────── */
@@ -904,7 +988,20 @@
     <!-- Prompt -->
     <section class="prompt-section">
       <div class="section-label reveal">
-        <span class="num">II.</span><span data-i18n="promptLabel">Prompt</span><span class="rule"></span>
+        <span class="num">II.</span><span data-i18n="promptLabel">Prompt</span>
+        <span class="rule"></span>
+        <button id="promptExpandBtn" class="prompt-expand-button" type="button" onclick="openPromptModal()" aria-haspopup="dialog" aria-controls="promptModal" aria-label="Expand prompt editor" title="Expand prompt editor">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M9.2 9.2 3 3" fill="none" stroke-width="2.8" stroke-linecap="round" />
+            <path d="M3 7.7V3h4.7" fill="none" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M14.8 9.2 21 3" fill="none" stroke-width="2.8" stroke-linecap="round" />
+            <path d="M16.3 3H21v4.7" fill="none" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M9.2 14.8 3 21" fill="none" stroke-width="2.8" stroke-linecap="round" />
+            <path d="M7.7 21H3v-4.7" fill="none" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M14.8 14.8 21 21" fill="none" stroke-width="2.8" stroke-linecap="round" />
+            <path d="M21 16.3V21h-4.7" fill="none" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
       </div>
       <textarea id="prompt" class="reveal" placeholder="Describe what you wish to see…" data-i18n-placeholder="promptPlaceholder"></textarea>
       <textarea id="editPromptOverride" hidden aria-hidden="true"></textarea>
@@ -1007,6 +1104,23 @@
       </div>
     </div>
 
+    <div id="promptModal" class="prompt-modal" hidden role="dialog" aria-modal="true" aria-labelledby="promptModalTitle">
+      <div class="prompt-modal__scrim" onclick="closePromptModal()"></div>
+      <div class="prompt-modal__panel">
+        <div class="prompt-modal__head">
+          <div class="section-label">
+            <span class="num">II.</span><h2 id="promptModalTitle" class="prompt-modal__title" data-i18n="promptModalTitle">Prompt editor</h2><span class="rule"></span>
+          </div>
+          <button class="prompt-modal__close" type="button" onclick="closePromptModal()" data-i18n="closePromptModal">Close</button>
+        </div>
+        <textarea id="promptModalText" class="prompt-modal__textarea" placeholder="Describe what you wish to see…" data-i18n-placeholder="promptPlaceholder"></textarea>
+        <div class="prompt-modal__actions">
+          <span class="prompt-modal__hint" data-i18n="promptModalHint">Ctrl / Cmd + Enter to generate</span>
+          <button type="button" onclick="closePromptModal()" data-i18n="donePromptModal">Done</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Colophon -->
     <footer class="colophon">
       <span data-i18n="footerType">Set in Newsreader &amp; JetBrains Mono</span>
@@ -1041,6 +1155,11 @@ const translations = {
     openWorkspace: 'Open workspace',
     promptLabel: 'Prompt',
     promptPlaceholder: 'Describe what you wish to see…',
+    expandPromptLabel: 'Expand prompt editor',
+    promptModalTitle: 'Prompt editor',
+    closePromptModal: 'Close',
+    donePromptModal: 'Done',
+    promptModalHint: 'Ctrl / Cmd + Enter to generate',
     promptRequired: 'A prompt is required…',
     model: 'Model',
     count: 'Count',
@@ -1101,6 +1220,11 @@ const translations = {
     openWorkspace: '打开工作台',
     promptLabel: '提示词',
     promptPlaceholder: '描述你想看到的画面…',
+    expandPromptLabel: '打开大窗口编辑提示词',
+    promptModalTitle: '提示词编辑器',
+    closePromptModal: '关闭',
+    donePromptModal: '完成',
+    promptModalHint: 'Ctrl / Cmd + 回车生成',
     promptRequired: '请输入提示词…',
     model: '模型',
     count: '数量',
@@ -1161,6 +1285,9 @@ function applyLanguage() {
   langToggle.setAttribute('aria-label', t('switchLanguage'));
   const keyToggle = document.getElementById('keyToggle');
   keyToggle.textContent = document.getElementById('apiKey').type === 'password' ? t('showKey') : t('hideKey');
+  const promptExpandBtn = document.getElementById('promptExpandBtn');
+  promptExpandBtn.setAttribute('aria-label', t('expandPromptLabel'));
+  promptExpandBtn.setAttribute('title', t('expandPromptLabel'));
 }
 
 function toggleLanguage() {
@@ -1531,6 +1658,38 @@ function updateDeckCard(id, patch) {
   renderDeck();
 }
 
+function syncPromptFromModal() {
+  const mainPrompt = document.getElementById('prompt');
+  const modalPrompt = document.getElementById('promptModalText');
+  mainPrompt.value = modalPrompt.value;
+  document.getElementById('editPromptOverride').value = '';
+}
+
+function openPromptModal() {
+  const modal = document.getElementById('promptModal');
+  const mainPrompt = document.getElementById('prompt');
+  const modalPrompt = document.getElementById('promptModalText');
+  modalPrompt.value = mainPrompt.value;
+  modal.hidden = false;
+  document.body.classList.add('modal-open');
+  requestAnimationFrame(() => modalPrompt.focus());
+}
+
+function closePromptModal() {
+  const modal = document.getElementById('promptModal');
+  if (modal.hidden) return;
+  syncPromptFromModal();
+  modal.hidden = true;
+  document.body.classList.remove('modal-open');
+  document.getElementById('promptExpandBtn').focus();
+}
+
+function generateFromPromptModal() {
+  syncPromptFromModal();
+  closePromptModal();
+  generate();
+}
+
 function generate() {
   const prompt = document.getElementById('prompt').value.trim();
   const model  = document.getElementById('model').value;
@@ -1686,6 +1845,18 @@ document.getElementById('prompt').addEventListener('keydown', e => {
 
 document.getElementById('prompt').addEventListener('input', () => {
   document.getElementById('editPromptOverride').value = '';
+});
+
+document.getElementById('promptModalText').addEventListener('input', syncPromptFromModal);
+
+document.getElementById('promptModalText').addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') generateFromPromptModal();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !document.getElementById('promptModal').hidden) {
+    closePromptModal();
+  }
 });
 
 document.getElementById('editImageFile').addEventListener('change', () => {
