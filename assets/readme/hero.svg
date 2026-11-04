@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400" role="img" aria-labelledby="hero-title hero-desc">
-  <title id="hero-title">Tools：11 个日常工具的索引仓库</title>
-  <desc id="hero-desc">左侧是仓库名与说明：11 个工具放在同一个目录，其中 9 个保留独立 Git 历史与远程。右侧是工具索引，逐条标出属于本仓还是独立仓。</desc>
+  <title id="hero-title">Tools：11 个日常工具，一个仓库</title>
+  <desc id="hero-desc">左侧是仓库名与说明：11 个工具放在同一个目录，各自有独立的 README 与运行环境，克隆一次即可全部取到。右侧是工具索引，逐条标出所属技术栈。</desc>
 
   <rect width="1200" height="400" rx="22" fill="#0b0f14"/>
 
@@ -9,8 +9,8 @@
     <text x="54" y="166" font-size="84" font-weight="800" letter-spacing="-2" fill="#f4f1ea">Tools</text>
     <text x="56" y="216" font-size="28" font-weight="600" fill="#e3ded4">日常 AI 工具索引</text>
     <text x="56" y="258" font-size="19" fill="#9aa3b0">11 个工具放在一个目录里，</text>
-    <text x="56" y="286" font-size="19" fill="#9aa3b0">9 个保留自己的 Git 历史与远程。</text>
-    <text x="56" y="344" font-size="17" fill="#6b7482" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">11 tools · 9 sub-repos · 2 tracked</text>
+    <text x="56" y="286" font-size="19" fill="#9aa3b0">克隆一次就能拿到全部。</text>
+    <text x="56" y="344" font-size="17" fill="#6b7482" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">11 tools · 11 READMEs · 1 clone</text>
   </g>
 
   <line x1="528" y1="48" x2="528" y2="360" stroke="#1a222c"/>
@@ -47,18 +47,18 @@
       <text x="606" y="350">knowledge-map</text>
     </g>
 
-    <g font-size="18" text-anchor="end">
-      <text x="1144" y="100" fill="#e4af77">本仓</text>
-      <text x="1144" y="125" fill="#e4af77">本仓</text>
-      <text x="1144" y="150" fill="#5fd0bb">独立仓</text>
-      <text x="1144" y="175" fill="#5fd0bb">独立仓</text>
-      <text x="1144" y="200" fill="#5fd0bb">独立仓</text>
-      <text x="1144" y="225" fill="#5fd0bb">独立仓</text>
-      <text x="1144" y="250" fill="#5fd0bb">独立仓</text>
-      <text x="1144" y="275" fill="#5fd0bb">独立仓</text>
-      <text x="1144" y="300" fill="#5fd0bb">独立仓</text>
-      <text x="1144" y="325" fill="#5fd0bb">独立仓</text>
-      <text x="1144" y="350" fill="#5fd0bb">独立仓</text>
+    <g font-size="18" text-anchor="end" fill="#7d8794">
+      <text x="1144" y="100">FastAPI</text>
+      <text x="1144" y="125">静态页</text>
+      <text x="1144" y="150">Python</text>
+      <text x="1144" y="175">Python</text>
+      <text x="1144" y="200">Python</text>
+      <text x="1144" y="225">Python</text>
+      <text x="1144" y="250">Node</text>
+      <text x="1144" y="275">Go + Vue</text>
+      <text x="1144" y="300">React</text>
+      <text x="1144" y="325">原生 JS</text>
+      <text x="1144" y="350">TypeScript</text>
     </g>
 
     <g stroke="#161d27">
