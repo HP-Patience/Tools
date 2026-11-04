@@ -1,43 +1,63 @@
-# AI Tools
+<p align="center">
+  <img src="assets/readme/hero.svg" width="100%" alt="Tools：日常 AI 工具集合">
+</p>
 
-这个仓库用于整理和沉淀一些日常好用的 AI 小工具。每个工具尽量保持独立目录，方便单独运行、维护和复用。
+<p align="center">
+  <strong>把散落在各处的日常小工具收进一个目录，每个工具保留自己的提交历史与远程仓库。</strong><br>
+  子目录由 .gitignore 排除，工具各自独立 pull/push，本仓只负责索引与说明。
+</p>
 
-## 工具列表
+<p align="center">
+  <a href="https://github.com/HP-Patience/Tools"><img src="https://img.shields.io/github/stars/HP-Patience/Tools?style=flat-square&color=f2c14e" alt="GitHub stars"></a>
+  <a href="https://github.com/HP-Patience/Tools"><img src="https://img.shields.io/github/last-commit/HP-Patience/Tools?style=flat-square&color=3ec6b0" alt="最近提交"></a>
+  <a href="https://github.com/HP-Patience/Tools"><img src="https://img.shields.io/github/languages/top/HP-Patience/Tools?style=flat-square&color=8b93a1" alt="主要语言"></a>
+  <a href="#工具清单"><img src="https://img.shields.io/badge/tools-11-ff7a59?style=flat-square" alt="工具数量：11"></a>
+</p>
 
-| 工具 | 说明 | 入口 |
-| --- | --- | --- |
-| LLM 试金石 | 本地网页工具，用于测试兼容 OpenAI API 格式的 LLM 服务、批量验证模型连通性和响应速度。 | [`LLM试金石/`](./LLM试金石/) |
-| GPT 图像工坊 | 本地 AI 绘图 Web 工具，支持配置 OpenAI 兼容图片生成接口、选择模型/尺寸/数量并保存生成图片。 | [`GPT图像工坊/`](./GPT图像工坊/) |
+## 这是什么
 
-## 目录约定
+日常在用的小工具合集。它们语言、运行形态各不相同——Python 脚本、Go 服务、TypeScript 应用、纯静态页——没有可以共用的代码层，所以不合并历史，只归拢位置。
 
-```text
-.
-├── LLM试金石/     # LLM 服务测试工具
-├── GPT图像工坊/   # AI 绘图工具
-└── README.md      # 仓库总览
+放在一起的理由只有一个：**要找的时候知道去哪儿找**。
+
+## 目录
+
+| 目录 | 说明 | 形态 |
+|---|---|---|
+| `GPT图像工坊` | 本地图像生成与提示词试验台 | 静态页 |
+| `LLM试金石` | 多模型服务连通性与质量测试 | 静态页 |
+| `Dreamcore-Style-Transfer` | 10 种亚文化美学的纯 Pillow 图像处理 | Python |
+| `Penrose-Staircase` | 彭罗斯不可能阶梯生成器 | Python |
+| `tencent-server-seckill` | 腾讯云服务器抢购助手 | Python |
+| `mailbox-reader` | Windows 本地邮箱批量读取（Graph API） | Python |
+| `QQBookExporter` | QQ 阅读书籍导出（Markdown / EPUB） | Node |
+| `danew_card_cdk` | CDK 卡密兑换与自动开通 | Go + Vue |
+| `ai-subscription-manager` | AI 订阅客户与续费管理 | TypeScript |
+| `Taskleaf-Kanban` | 四列任务看板，JSON 持久化 | 原生 JS |
+| `knowledge-map` | AI 整理、人只读的知识地图 | TypeScript |
+
+## 为什么这样放
+
+嵌套的 `.git` 会被外层仓库当作 gitlink，`git add .` 会生成一批没有 `.gitmodules` 的假子模块。所以本仓的 `.gitignore` 显式排除了这些目录：
+
+```gitignore
+/Dreamcore-Style-Transfer/
+/tencent-server-seckill/
+/...
 ```
 
-后续新增工具时，建议每个工具目录内都包含自己的 `README.md`，说明用途、运行方式和注意事项。
+结果是：外层 `git status` 干净，子仓仍可各自 `git pull` / `git push`。
 
-## 使用方式
-
-进入对应工具目录，按照该目录下的 README 运行即可。
-
-例如：
+## 怎么用
 
 ```bash
-cd LLM试金石
-python server.py
+git clone https://github.com/HP-Patience/Tools.git
+cd Tools/<工具名>
 ```
 
-```bash
-cd GPT图像工坊
-python app.py
-```
+每个子目录都有独立的 `README.md` 与 `package.json` / `requirements.txt`，按各自说明安装即可。
 
-## 维护说明
+## 说明
 
-- 一个工具一个文件夹，尽量减少不同工具之间的耦合。
-- 工具目录内保留必要的启动脚本、源码和说明文档。
-- 涉及 API Key、Token、Cookie 等敏感信息时，不要提交到仓库。
+- 子仓的远程仓库部分已删除，代码只保留在本地这份工作区，`git fetch` 会报 `Repository not found`，属预期。
+- 新增工具时，记得同步更新本 README 的目录表与 `.gitignore`。
