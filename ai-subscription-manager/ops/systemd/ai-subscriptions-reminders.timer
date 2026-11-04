@@ -1,0 +1,8 @@
+[Unit]
+Description=Check expiry every 15 minutes
+[Timer]
+OnCalendar=*-*-* *:0/15:00
+Persistent=true
+Unit=ai-subscriptions-reminders.service
+[Install]
+WantedBy=timers.target

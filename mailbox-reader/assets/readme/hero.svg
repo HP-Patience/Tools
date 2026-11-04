@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+  <title id="title">Mailroom — 邮箱识别与读取</title>
+  <desc id="desc">将 TXT 账号导入本地，加密保存凭据，点击账号按需读取收件箱。右侧是示意邮件列表，使用虚构账号。</desc>
+  <rect width="1200" height="360" rx="18" fill="#edf0e8"/>
+  <g id="title-block" font-family="Segoe UI,Microsoft YaHei,PingFang SC,sans-serif">
+    <rect x="52" y="48" width="43" height="43" rx="11" fill="#20352e"/>
+    <path d="M62 80V59h5l7 11 7-11h5v21h-5V68l-7 11-7-11v12z" fill="#e7f0b6"/>
+    <text x="110" y="77" font-size="19" letter-spacing="3" fill="#526a57">LOCAL MAIL WORKSPACE</text>
+    <text x="50" y="167" font-size="68" font-weight="650" letter-spacing="-3" fill="#20352e">Mailroom<tspan fill="#28634b">.</tspan></text>
+    <text x="54" y="218" font-size="28" fill="#20352e">邮箱识别与读取</text>
+    <text x="54" y="263" font-size="21" fill="#65765f">导入 TXT，整理账号，按需读取邮件。</text>
+    <path d="M54 302h365" stroke="#cad5c0"/>
+    <text x="54" y="330" font-size="17" fill="#65765f">Windows · Python · Microsoft Graph</text>
+  </g>
+  <g id="mail-workflow" font-family="Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" transform="translate(604 38)">
+    <rect width="544" height="284" rx="12" fill="#fff" stroke="#d6dfce"/>
+    <path d="M0 59h544M0 135h544M0 211h544" stroke="#e0e5dc"/>
+    <text x="25" y="37" fill="#20352e" font-size="21" font-weight="600">TXT → 账号库 → 收件箱</text>
+    <rect x="434" y="18" width="84" height="26" rx="13" fill="#edf4e7"/>
+    <circle cx="448" cy="31" r="4" fill="#399963"/>
+    <text x="460" y="36" font-size="14" fill="#28634b">按需读取</text>
+    <text x="25" y="91" font-size="20" fill="#20352e">01</text>
+    <text x="75" y="91" font-size="20" fill="#20352e">demo@example.com</text>
+    <text x="75" y="119" font-size="17" fill="#768078">存活 · 天选</text>
+    <circle cx="486" cy="96" r="7" fill="#399963"/>
+    <rect x="1" y="136" width="542" height="75" fill="#f3f8ee"/>
+    <path d="M1 136v75" stroke="#28634b" stroke-width="3"/>
+    <path d="M25 160h26v21H25zM25 160l13 11 13-11" fill="none" stroke="#28634b" stroke-width="2" stroke-linejoin="round"/>
+    <text x="75" y="169" font-size="20" fill="#20352e">点击账号，打开收件箱</text>
+    <text x="75" y="196" font-size="17" fill="#768078">邮件列表 / 正文 / 验证链接</text>
+    <text x="25" y="253" font-size="19" fill="#28634b">••••••</text>
+    <text x="116" y="253" font-size="19" fill="#65765f">凭据加密保存，邮件按需获取</text>
+  </g>
+</svg>

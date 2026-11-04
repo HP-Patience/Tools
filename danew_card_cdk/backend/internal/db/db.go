@@ -1,0 +1,2389 @@
+package db
+
+import (
+	"crypto/rand"
+	"crypto/sha1"
+	"crypto/sha256"
+	"crypto/subtle"
+	"database/sql"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"log"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/danew/cdk-recharge-system/internal/config"
+	_ "github.com/mattn/go-sqlite3"
+	"golang.org/x/crypto/bcrypt"
+)
+
+var DB *sql.DB
+
+const (
+	DefaultAdminUsername = "admin"
+	// 历史上内置的默认密码，仅用于在启动时识别“仍在使用弱口令”并告警，不再用于创建账号。
+	legacyDefaultPassword = "admin123456"
+)
+
+func Init(cfg *config.DatabaseConfig) error {
+	// 使用 SQLite。默认 ../data/cdk_recharge.db（相对于backend目录）；
+	// 部署/容器内可用环境变量 DB_PATH 覆盖（如 /app/data/cdk_recharge.db）。
+	dbPath := "../data/cdk_recharge.db"
+	if p := strings.TrimSpace(os.Getenv("DB_PATH")); p != "" {
+		dbPath = p
+	}
+	log.Printf("使用数据库: %s", dbPath)
+	// WAL + busy_timeout：批量充值 executor 会并发写 admin_recharge_items，
+	// 默认的 rollback journal 在并发写下会直接返回 SQLITE_BUSY 而不是等待。
+	db, err := sql.Open("sqlite3", sqliteDSN(dbPath))
+	if err != nil {
+		return err
+	}
+
+	if err := db.Ping(); err != nil {
+		return err
+	}
+
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
+
+	if mode, err := currentJournalMode(db); err != nil {
+		log.Printf("警告: 无法读取 journal_mode: %v", err)
+	} else if !strings.EqualFold(mode, "wal") {
+		log.Printf("警告: journal_mode=%s（期望 wal），并发写可能出现 SQLITE_BUSY", mode)
+	} else {
+		log.Printf("✓ SQLite journal_mode=wal, busy_timeout=%dms", sqliteBusyTimeoutMS)
+	}
+
+	DB = db
+	log.Println("✓ SQLite 数据库连接成功: data/cdk_recharge.db")
+
+	// 创建表
+	if err := createTables(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// sqliteBusyTimeoutMS 是写锁竞争时的最长等待，超时才返回 SQLITE_BUSY。
+const sqliteBusyTimeoutMS = 5000
+
+// sqliteDSN 给库路径附加 WAL 与 busy_timeout 参数（调用方已配置的参数优先保留）。
+func sqliteDSN(path string) string {
+	if strings.Contains(path, "?") {
+		return path
+	}
+	return fmt.Sprintf("%s?_journal_mode=WAL&_busy_timeout=%d", path, sqliteBusyTimeoutMS)
+}
+
+// currentJournalMode 回读实际生效的日志模式（内存库等场景无法启用 WAL）。
+func currentJournalMode(db *sql.DB) (string, error) {
+	var mode string
+	err := db.QueryRow(`PRAGMA journal_mode`).Scan(&mode)
+	return mode, err
+}
+
+func createTables() error {
+	// Unlike legacy best-effort migrations, the durable notification queue must
+	// be available before startup succeeds. No historical notices are replayed.
+	if err := createTelegramNotificationTables(); err != nil {
+		return fmt.Errorf("create telegram notification queue: %w", err)
+	}
+	queries := []string{
+		`CREATE TABLE IF NOT EXISTS cd_keys (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			code TEXT UNIQUE NOT NULL,
+			plan_type TEXT,
+			status TEXT DEFAULT 'active',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			used_at DATETIME,
+			expires_at DATETIME,
+			description TEXT
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_cd_keys_code ON cd_keys(code)`,
+		`CREATE INDEX IF NOT EXISTS idx_cd_keys_status ON cd_keys(status)`,
+
+		// 卡台 GPT 直充 CDK：发码时落库完整码，列表仅回前缀时用本表补全（admin 本站复制）
+		`CREATE TABLE IF NOT EXISTS cardplatform_cdk_codes (
+			upstream_id INTEGER,
+			code TEXT NOT NULL UNIQUE,
+			code_prefix TEXT,
+			plan TEXT,
+			fee_amount_minor INTEGER DEFAULT 0,
+			status TEXT DEFAULT '',
+			payment_country TEXT,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_cp_cdk_upstream ON cardplatform_cdk_codes(upstream_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_cp_cdk_prefix ON cardplatform_cdk_codes(code_prefix)`,
+
+		// CDK 备注（本站维护，按卡台上游 id；不依赖完整码是否已落库）
+		`CREATE TABLE IF NOT EXISTS cardplatform_cdk_notes (
+			upstream_id INTEGER PRIMARY KEY,
+			note TEXT NOT NULL DEFAULT '',
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		`CREATE TABLE IF NOT EXISTS recharge_tasks (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			task_id TEXT UNIQUE NOT NULL,
+			cdk_code TEXT NOT NULL,
+			session_json TEXT,
+			account_email TEXT,
+			task_status TEXT DEFAULT 'pending',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			completed_at DATETIME,
+			notes TEXT,
+			FOREIGN KEY(cdk_code) REFERENCES cd_keys(code)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_recharge_tasks_cdk ON recharge_tasks(cdk_code)`,
+		`CREATE INDEX IF NOT EXISTS idx_recharge_tasks_task_id ON recharge_tasks(task_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_recharge_tasks_status ON recharge_tasks(task_status)`,
+
+		`CREATE TABLE IF NOT EXISTS billing_records (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			session_hash TEXT UNIQUE NOT NULL,
+			account_email TEXT,
+			subscription_status TEXT,
+			plan_type TEXT,
+			billing_amount REAL,
+			currency TEXT DEFAULT 'USD',
+			next_billing_date DATETIME,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_billing_records_session ON billing_records(session_hash)`,
+		`CREATE INDEX IF NOT EXISTS idx_billing_records_email ON billing_records(account_email)`,
+
+		`CREATE TABLE IF NOT EXISTS admin_users (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			username TEXT UNIQUE NOT NULL,
+			password_hash TEXT NOT NULL,
+			display_name TEXT,
+			is_active INTEGER DEFAULT 1,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_admin_users_username ON admin_users(username)`,
+
+		`CREATE TABLE IF NOT EXISTS admin_audit_logs (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			username TEXT,
+			action TEXT NOT NULL,
+			detail TEXT,
+			ip TEXT,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_audit_created ON admin_audit_logs(created_at)`,
+
+		// 站点配置 key-value（品牌/皮肤/安装锁/加密密钥元数据等）
+		`CREATE TABLE IF NOT EXISTS site_settings (
+			key TEXT PRIMARY KEY,
+			value TEXT NOT NULL,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// 卡台 Webhook 事件（幂等入库；配合轮询双通道）
+		`CREATE TABLE IF NOT EXISTS webhook_events (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			account_id INTEGER NOT NULL DEFAULT 0,
+			event_type TEXT,
+			idem_key TEXT UNIQUE NOT NULL,
+			payload TEXT NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_webhook_created ON webhook_events(created_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_webhook_account_created ON webhook_events(account_id, created_at)`,
+
+		// 兑换时绑定的 CDK → session，供账单页「凭卡密查询」
+		`CREATE TABLE IF NOT EXISTS cdk_session_bindings (
+			cdk_code TEXT PRIMARY KEY,
+			session_payload TEXT NOT NULL,
+			redemption_token TEXT,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_cdk_bind_token ON cdk_session_bindings(redemption_token)`,
+
+		// 代理失败换码日志（旧码 → 新码，仅未扣款失败）
+		`CREATE TABLE IF NOT EXISTS agent_cdk_exchanges (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			old_code_hash TEXT NOT NULL,
+			old_upstream_id INTEGER,
+			new_upstream_id INTEGER,
+			old_code_prefix TEXT,
+			new_code_prefix TEXT,
+			plan TEXT,
+			order_id INTEGER,
+			order_status TEXT,
+			ip TEXT,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_agent_ex_old_hash ON agent_cdk_exchanges(old_code_hash)`,
+
+		// 自动选卡权重规则（管理员可配置优先级）
+		`CREATE TABLE IF NOT EXISTS card_selection_rules (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			sort_order INTEGER NOT NULL DEFAULT 0,
+			plan_key TEXT NOT NULL,
+			display_name TEXT NOT NULL,
+			bin_prefix TEXT DEFAULT '',
+			channel TEXT DEFAULT '',
+			enabled INTEGER DEFAULT 1,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// 卡台产品状态缓存（每3分钟后台同步，plan_key 用于逻辑套餐）
+		`CREATE TABLE IF NOT EXISTS plan_status_cache (
+			plan_key TEXT PRIMARY KEY,
+			label TEXT DEFAULT '',
+			online INTEGER DEFAULT 1,
+			service_fee_usd_minor INTEGER DEFAULT 0,
+			synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// 卡健康：充值失败事件（按卡 + 邮箱归因）
+		`CREATE TABLE IF NOT EXISTS card_fail_events (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			card_id INTEGER NOT NULL,
+			card_last_four TEXT DEFAULT '',
+			order_id INTEGER NOT NULL DEFAULT 0,
+			cdk_code TEXT DEFAULT '',
+			account_email_norm TEXT NOT NULL DEFAULT '',
+			email_source TEXT DEFAULT '',
+			error_code TEXT DEFAULT '',
+			order_status TEXT DEFAULT '',
+			verdict TEXT DEFAULT '',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(order_id, card_id)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_card_fail_card ON card_fail_events(card_id, created_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_card_fail_email ON card_fail_events(account_email_norm)`,
+
+		// 卡健康：本站认定的坏卡（多邮箱失败）
+		`CREATE TABLE IF NOT EXISTS card_blocklist (
+			card_id INTEGER PRIMARY KEY,
+			card_last_four TEXT DEFAULT '',
+			reason TEXT NOT NULL DEFAULT '',
+			distinct_emails INTEGER NOT NULL DEFAULT 0,
+			fail_count INTEGER NOT NULL DEFAULT 0,
+			freeze_status TEXT DEFAULT '',
+			freeze_error TEXT DEFAULT '',
+			blocked_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			unblocked_at DATETIME,
+			notes TEXT DEFAULT ''
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_card_block_active ON card_blocklist(blocked_at) WHERE unblocked_at IS NULL`,
+
+		// 卡台实体产品缓存（/openapi/v1/products 同步，product_code 唯一）
+		`CREATE TABLE IF NOT EXISTS card_product_cache (
+			product_code TEXT PRIMARY KEY,
+			issuer TEXT DEFAULT '',
+			bin TEXT DEFAULT '',
+			network TEXT DEFAULT '',
+			issuing_area TEXT DEFAULT '',
+			scene TEXT DEFAULT '',
+			card_group TEXT DEFAULT '',
+			description TEXT DEFAULT '',
+			bin_heads TEXT DEFAULT '',
+			enabled INTEGER DEFAULT 1,
+			suspended_at TEXT DEFAULT '',
+			synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// 管理员批量充值批次（管理端不出现卡密；卡密是内部记账凭证）
+		`CREATE TABLE IF NOT EXISTS admin_recharge_batches (
+			batch_id TEXT PRIMARY KEY,
+			operator TEXT DEFAULT '',
+			plan TEXT DEFAULT '',
+			total INTEGER DEFAULT 0,
+			status TEXT DEFAULT 'running',
+			fingerprint TEXT DEFAULT '',
+			message TEXT DEFAULT '',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_arb_created ON admin_recharge_batches(created_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_arb_fingerprint ON admin_recharge_batches(fingerprint)`,
+
+		// 批量充值明细：列表/详情接口不回传凭据；gpt_password / email_password / session
+		// 仅供服务端导出 Excel，旧库由 migrateAdminRechargeItemCredCols 补列。
+		`CREATE TABLE IF NOT EXISTS admin_recharge_items (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			batch_id TEXT NOT NULL,
+			seq INTEGER NOT NULL,
+			client_request_id TEXT NOT NULL UNIQUE,
+			plan TEXT DEFAULT '',
+			cred_mode TEXT DEFAULT '',
+			account_email TEXT DEFAULT '',
+			gpt_password TEXT DEFAULT '',
+			email_password TEXT DEFAULT '',
+			session TEXT DEFAULT '',
+			cdk_code TEXT DEFAULT '',
+			card_id INTEGER DEFAULT 0, -- reserved: future card-platform card id write-back; access layer does not read/write it yet
+			redemption_token TEXT DEFAULT '',
+			upstream_order_id TEXT DEFAULT '',
+			status TEXT DEFAULT 'pending',
+			message TEXT DEFAULT '',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_ari_batch_seq ON admin_recharge_items(batch_id, seq)`,
+		`CREATE INDEX IF NOT EXISTS idx_ari_status ON admin_recharge_items(status)`,
+	}
+
+	for _, query := range queries {
+		if _, err := DB.Exec(query); err != nil {
+			log.Printf("警告: 创建表时出错 (可能已存在): %v", err)
+		}
+	}
+
+	log.Println("✓ 数据表已准备就绪")
+	if err := migrateCDKPlanTypes(); err != nil {
+		return err
+	}
+	if err := migrateLegacyCDKCodes(); err != nil {
+		return err
+	}
+	if err := migrateDefaultCardSelectionRules(); err != nil {
+		return err
+	}
+	if err := migrateCardplatformCDKStatusCol(); err != nil {
+		log.Printf("migrateCardplatformCDKStatusCol: %v", err)
+	}
+	if err := migrateCardplatformCDKRegionCol(); err != nil {
+		return fmt.Errorf("migrate cardplatform CDK region: %w", err)
+	}
+	if err := migrateAdminRechargeItemCredCols(); err != nil {
+		log.Printf("migrateAdminRechargeItemCredCols: %v", err)
+	}
+	if err := migrateWebhookEventAccountCol(); err != nil {
+		log.Printf("migrateWebhookEventAccountCol: %v", err)
+	}
+	if err := migrateAgentPortal(); err != nil {
+		log.Printf("migrateAgentPortal: %v", err)
+	}
+	if err := migrateSiteDualBindSchema(); err != nil {
+		return fmt.Errorf("migrate dual-bind schema: %w", err)
+	}
+	if err := migrateAdminRechargeBatchRegionCol(); err != nil {
+		return fmt.Errorf("migrate batch recharge region: %w", err)
+	}
+	if err := migrateCodeLookupIndexes(); err != nil {
+		log.Printf("migrateCodeLookupIndexes: %v", err)
+	}
+	if err := migrateAgentExchangeClaim(); err != nil {
+		return fmt.Errorf("migrate agent exchange claim: %w", err)
+	}
+	if err := migrateSealCDKSessions(); err != nil {
+		log.Printf("migrateSealCDKSessions: %v", err)
+	}
+	if err := migrateSealAdminRechargeCreds(); err != nil {
+		log.Printf("migrateSealAdminRechargeCreds: %v", err)
+	}
+	if err := ensureDefaultAdmin(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// migrateCardplatformCDKStatusCol 为已存完整码表补 status（禁用后列表要展示）。
+func migrateCardplatformCDKStatusCol() error {
+	if DB == nil {
+		return nil
+	}
+	var n int
+	err := DB.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('cardplatform_cdk_codes') WHERE name='status'`).Scan(&n)
+	if err != nil || n > 0 {
+		return err
+	}
+	_, err = DB.Exec(`ALTER TABLE cardplatform_cdk_codes ADD COLUMN status TEXT DEFAULT ''`)
+	return err
+}
+
+func migrateWebhookEventAccountCol() error {
+	if DB == nil {
+		return nil
+	}
+	var n int
+	if err := DB.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('webhook_events') WHERE name='account_id'`).Scan(&n); err != nil {
+		return err
+	}
+	if n == 0 {
+		if _, err := DB.Exec(`ALTER TABLE webhook_events ADD COLUMN account_id INTEGER NOT NULL DEFAULT 0`); err != nil {
+			return err
+		}
+	}
+	_, err := DB.Exec(`CREATE INDEX IF NOT EXISTS idx_webhook_account_created ON webhook_events(account_id, created_at)`)
+	return err
+}
+
+// migrateAdminRechargeItemCredCols 为旧库补导出用凭据列（可空，历史批次保持空字符串）。
+func migrateAdminRechargeItemCredCols() error {
+	if DB == nil {
+		return nil
+	}
+	for _, col := range []string{"gpt_password", "email_password", "session"} {
+		var n int
+		err := DB.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('admin_recharge_items') WHERE name=?`, col).Scan(&n)
+		if err != nil {
+			return err
+		}
+		if n > 0 {
+			continue
+		}
+		if _, err := DB.Exec(`ALTER TABLE admin_recharge_items ADD COLUMN ` + col + ` TEXT DEFAULT ''`); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// legacySHA256 是旧的（不安全）哈希算法，仅用于兼容历史数据并在登录时升级为 bcrypt。
+func legacySHA256(password string) string {
+	hash := sha256.Sum256([]byte(password))
+	return hex.EncodeToString(hash[:])
+}
+
+// HashAdminPassword 现在使用 bcrypt（带盐、慢哈希）。
+// WriteAudit 记录一条管理员操作审计日志（best-effort，失败只记日志不影响主流程）。
+func WriteAudit(username, action, detail, ip string) {
+	if DB == nil {
+		return
+	}
+	if _, err := DB.Exec(
+		`INSERT INTO admin_audit_logs (username, action, detail, ip) VALUES (?, ?, ?, ?)`,
+		username, action, detail, ip,
+	); err != nil {
+		log.Printf("写入审计日志失败: %v", err)
+	}
+}
+
+func HashAdminPassword(password string) (string, error) {
+	b, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+// VerifyAdminPassword 校验密码。返回 (是否正确, 需要写回的新哈希)。
+// 若数据库里仍是旧的 SHA-256 哈希且校验通过，会返回一个 bcrypt 新哈希用于升级存储。
+func VerifyAdminPassword(stored, plain string) (bool, string) {
+	if strings.HasPrefix(stored, "$2") {
+		return bcrypt.CompareHashAndPassword([]byte(stored), []byte(plain)) == nil, ""
+	}
+	// 旧的 SHA-256 十六进制哈希：常量时间比较，命中后升级为 bcrypt
+	if subtle.ConstantTimeCompare([]byte(legacySHA256(plain)), []byte(stored)) == 1 {
+		if upgraded, err := HashAdminPassword(plain); err == nil {
+			return true, upgraded
+		}
+		return true, ""
+	}
+	return false, ""
+}
+
+// SetAdminPassword 更新指定管理员的密码（bcrypt）。
+func SetAdminPassword(username, newPlain string) error {
+	hash, err := HashAdminPassword(newPlain)
+	if err != nil {
+		return err
+	}
+	_, err = DB.Exec(`UPDATE admin_users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?`, hash, username)
+	return err
+}
+
+// UpgradeAdminHash 把登录时升级出来的 bcrypt 哈希写回数据库。
+func UpgradeAdminHash(username, newHash string) {
+	if newHash == "" {
+		return
+	}
+	if _, err := DB.Exec(`UPDATE admin_users SET password_hash = ? WHERE username = ?`, newHash, username); err != nil {
+		log.Printf("升级管理员密码哈希失败: %v", err)
+	}
+}
+
+func randomPassword(n int) string {
+	const letters = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz"
+	const digits = "23456789"
+	const alphabet = letters + digits
+	buf := make([]byte, n)
+	if _, err := rand.Read(buf); err != nil {
+		return "Chg-Me-" + legacySHA256(fmt.Sprintf("%d", time.Now().UnixNano()))[:12]
+	}
+	out := make([]byte, n)
+	for i, b := range buf {
+		out[i] = alphabet[int(b)%len(alphabet)]
+	}
+	// 生成的口令会直接进入「至少 12 位 + 同时含字母和数字」的强度校验，
+	// 而纯随机取样并不保证两类字符都出现（16 位约 9% 概率取不到数字）。
+	// 首尾各钉一位，保证任何一次生成都能通过校验。
+	out[0] = letters[int(buf[0])%len(letters)]
+	out[n-1] = digits[int(buf[n-1])%len(digits)]
+	return string(out)
+}
+
+// InstallMode: wizard（推荐，等 Web 安装）| auto（启动时建管理员，兼容旧行为）
+func InstallMode() string {
+	m := strings.ToLower(strings.TrimSpace(os.Getenv("INSTALL_MODE")))
+	if m == "auto" {
+		return "auto"
+	}
+	// 默认 wizard：开源/生产更安全
+	return "wizard"
+}
+
+// IsInstalled 任一管理员存在或 install_completed_at 已写，即视为已安装。
+func IsInstalled() bool {
+	if AdminCount() > 0 {
+		return true
+	}
+	v, _ := GetSetting("install_completed_at")
+	return strings.TrimSpace(v) != ""
+}
+
+func AdminCount() int {
+	if DB == nil {
+		return 0
+	}
+	var n int
+	_ = DB.QueryRow(`SELECT COUNT(*) FROM admin_users`).Scan(&n)
+	return n
+}
+
+func GetSetting(key string) (string, error) {
+	var v string
+	err := DB.QueryRow(`SELECT value FROM site_settings WHERE key = ?`, key).Scan(&v)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return v, err
+}
+
+func SetSetting(key, value string) error {
+	_, err := DB.Exec(`
+		INSERT INTO site_settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
+		ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+	`, key, value)
+	return err
+}
+
+func DeleteSetting(key string) error {
+	_, err := DB.Exec(`DELETE FROM site_settings WHERE key = ?`, key)
+	return err
+}
+
+// EnsureSetupToken 未安装时准备一次性安装令牌（hash 入库，明文仅首次创建时返回供打日志）。
+// 若 env SETUP_BOOTSTRAP_TOKEN 已设，则用其；否则随机生成。已有 hash 时返回空 plain。
+func EnsureSetupToken() (plain string, firstTime bool, err error) {
+	if IsInstalled() {
+		return "", false, nil
+	}
+	// 已有 hash：不再二次生成（避免每次重启换 token）
+	if h, _ := GetSetting("setup_token_hash"); strings.TrimSpace(h) != "" {
+		return "", false, nil
+	}
+	plain = strings.TrimSpace(os.Getenv("SETUP_BOOTSTRAP_TOKEN"))
+	if plain == "" {
+		plain = randomPassword(24)
+	}
+	sum := sha256.Sum256([]byte(plain))
+	if err := SetSetting("setup_token_hash", hex.EncodeToString(sum[:])); err != nil {
+		return "", false, err
+	}
+	return plain, true, nil
+}
+
+// VerifySetupToken 常量时间比较安装令牌。
+func VerifySetupToken(plain string) bool {
+	stored, err := GetSetting("setup_token_hash")
+	if err != nil || stored == "" || plain == "" {
+		return false
+	}
+	sum := sha256.Sum256([]byte(plain))
+	got := hex.EncodeToString(sum[:])
+	return subtle.ConstantTimeCompare([]byte(got), []byte(stored)) == 1
+}
+
+// MarkInstalled 写安装完成标记并作废 setup token。
+func MarkInstalled(username string) error {
+	if err := SetSetting("install_completed_at", time.Now().UTC().Format(time.RFC3339)); err != nil {
+		return err
+	}
+	_ = DeleteSetting("setup_token_hash")
+	WriteAudit(username, "install_bootstrap", "setup completed", "")
+	return nil
+}
+
+// IsWeakPassword 拦截常见弱口令与历史默认口令。
+func IsWeakPassword(p string) bool {
+	p = strings.TrimSpace(p)
+	if len(p) < 12 {
+		return true
+	}
+	lower := strings.ToLower(p)
+	weak := []string{
+		legacyDefaultPassword, "password", "password123", "admin", "admin123",
+		"adminadmin", "12345678", "123456789012", "qwerty123456", "changeme",
+		"letmein12345", "welcome12345",
+	}
+	for _, w := range weak {
+		if lower == w {
+			return true
+		}
+	}
+	// 全数字或与用户名相同在调用方再判
+	return false
+}
+
+func ensureDefaultAdmin() error {
+	// 先确保有安装令牌（wizard 模式、未安装时）
+	if !IsInstalled() && InstallMode() == "wizard" {
+		if plain, _, err := EnsureSetupToken(); err != nil {
+			return err
+		} else if plain != "" {
+			log.Printf("============================================================")
+			log.Printf("✓ 首次安装模式 (INSTALL_MODE=wizard)")
+			log.Printf("  打开 /ops/setup 完成管理员创建（仅一次）")
+			log.Printf("  Setup Token（仅此一次显示，bootstrap 请求头 X-Setup-Token）: %s", plain)
+			log.Printf("============================================================")
+		} else {
+			log.Printf("ℹ 等待 Web 安装向导：/ops/setup（需正确 X-Setup-Token）")
+		}
+	}
+
+	username := os.Getenv("ADMIN_USERNAME")
+	if strings.TrimSpace(username) == "" {
+		username = DefaultAdminUsername
+	}
+
+	var count int
+	var existingHash string
+	err := DB.QueryRow(`SELECT COUNT(*), COALESCE(MAX(password_hash), '') FROM admin_users WHERE username = ?`, username).Scan(&count, &existingHash)
+	if err != nil {
+		return err
+	}
+
+	if count > 0 {
+		// 已存在：若仍是历史弱口令，则在启动时大声告警，提示尽快改密。
+		if ok, _ := VerifyAdminPassword(existingHash, legacyDefaultPassword); ok {
+			log.Printf("⚠️  管理员 %s 仍在使用历史默认密码（admin123456），存在严重风险，请立刻登录后台修改密码！", username)
+		}
+		// 补写 install 标记（从旧库升级）
+		if v, _ := GetSetting("install_completed_at"); v == "" {
+			_ = SetSetting("install_completed_at", time.Now().UTC().Format(time.RFC3339))
+			_ = DeleteSetting("setup_token_hash")
+		}
+		return nil
+	}
+
+	// wizard：无 ADMIN_PASSWORD 时不自动建号，等 Web bootstrap
+	password := strings.TrimSpace(os.Getenv("ADMIN_PASSWORD"))
+	if InstallMode() == "wizard" && password == "" {
+		return nil
+	}
+
+	// auto 或显式 ADMIN_PASSWORD：启动时建管理员
+	generated := false
+	if password == "" {
+		password = randomPassword(16)
+		generated = true
+	}
+
+	hash, err := HashAdminPassword(password)
+	if err != nil {
+		return err
+	}
+	if _, err := DB.Exec(`
+		INSERT INTO admin_users (username, password_hash, display_name, is_active, updated_at)
+		VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)
+	`, username, hash, "System Admin"); err != nil {
+		return err
+	}
+	_ = MarkInstalled(username)
+
+	if generated {
+		log.Printf("============================================================")
+		log.Printf("✓ 已创建管理员账号: %s", username)
+		log.Printf("  初始随机密码（仅此一次显示，请立即登录修改）: %s", password)
+		log.Printf("  也可通过环境变量 ADMIN_PASSWORD 指定初始密码。")
+		log.Printf("============================================================")
+	} else {
+		log.Printf("✓ 已用 ADMIN_PASSWORD 创建管理员账号: %s", username)
+	}
+	return nil
+}
+
+// CreateAdminUser 事务安全创建管理员（安装向导用）。若已有任意管理员则失败。
+func CreateAdminUser(username, password, displayName string) error {
+	if DB == nil {
+		return fmt.Errorf("db not ready")
+	}
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return fmt.Errorf("username required")
+	}
+	if IsWeakPassword(password) {
+		return fmt.Errorf("password too weak")
+	}
+	tx, err := DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var n int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM admin_users`).Scan(&n); err != nil {
+		return err
+	}
+	if n > 0 {
+		return fmt.Errorf("already_installed")
+	}
+	hash, err := HashAdminPassword(password)
+	if err != nil {
+		return err
+	}
+	if displayName == "" {
+		displayName = "System Admin"
+	}
+	if _, err := tx.Exec(`
+		INSERT INTO admin_users (username, password_hash, display_name, is_active, updated_at)
+		VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)
+	`, username, hash, displayName); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`
+		INSERT INTO site_settings (key, value, updated_at) VALUES ('install_completed_at', ?, CURRENT_TIMESTAMP)
+		ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+	`, time.Now().UTC().Format(time.RFC3339)); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM site_settings WHERE key = ?`, "setup_token_hash"); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(
+		`INSERT INTO admin_audit_logs (username, action, detail, ip) VALUES (?, ?, ?, ?)`,
+		username, "install_bootstrap", "setup completed", "",
+	); err != nil {
+		log.Printf("audit install: %v", err)
+	}
+	return tx.Commit()
+}
+
+// RandomPassword 导出给安装向导生成强口令。
+func RandomPassword(n int) string {
+	if n < 12 {
+		n = 16
+	}
+	return randomPassword(n)
+}
+
+// WebhookEvent 入库行
+type WebhookEvent struct {
+	ID        int64
+	AccountID int64
+	EventType string
+	IdemKey   string
+	Payload   string
+	CreatedAt string
+}
+
+func scopedWebhookIdemKey(accountID int64, idemKey string) string {
+	idemKey = strings.TrimSpace(idemKey)
+	if accountID <= 0 {
+		return idemKey
+	}
+	prefix := strconv.FormatInt(accountID, 10) + "|"
+	if strings.HasPrefix(idemKey, prefix) {
+		return idemKey
+	}
+	return prefix + idemKey
+}
+
+func displayWebhookIdemKey(accountID int64, idemKey string) string {
+	if accountID <= 0 {
+		return idemKey
+	}
+	return strings.TrimPrefix(idemKey, strconv.FormatInt(accountID, 10)+"|")
+}
+
+func InsertWebhookEvent(accountID int64, eventType, idemKey, payload string) error {
+	if DB == nil {
+		return fmt.Errorf("db not ready")
+	}
+	_, err := DB.Exec(
+		`INSERT INTO webhook_events (account_id, event_type, idem_key, payload) VALUES (?, ?, ?, ?)`,
+		accountID, eventType, scopedWebhookIdemKey(accountID, idemKey), payload,
+	)
+	return err
+}
+
+func ListWebhookEvents(accountID int64, orphans bool, limit, offset int) ([]WebhookEvent, int, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	where := "1=1"
+	args := []any{}
+	if orphans {
+		where = "account_id = 0"
+	} else if accountID > 0 {
+		where = "account_id = ?"
+		args = append(args, accountID)
+	}
+	var total int
+	if err := DB.QueryRow(`SELECT COUNT(*) FROM webhook_events WHERE `+where, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	qargs := append(append([]any{}, args...), limit, offset)
+	rows, err := DB.Query(`
+		SELECT id, COALESCE(account_id,0), COALESCE(event_type,''), idem_key, payload, COALESCE(created_at,'')
+		FROM webhook_events
+		WHERE `+where+`
+		ORDER BY id DESC LIMIT ? OFFSET ?
+	`, qargs...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	var out []WebhookEvent
+	for rows.Next() {
+		var e WebhookEvent
+		if err := rows.Scan(&e.ID, &e.AccountID, &e.EventType, &e.IdemKey, &e.Payload, &e.CreatedAt); err != nil {
+			return nil, 0, err
+		}
+		e.IdemKey = displayWebhookIdemKey(e.AccountID, e.IdemKey)
+		out = append(out, e)
+	}
+	return out, total, rows.Err()
+}
+
+func normalizeCDKCode(code string) string {
+	return strings.ToUpper(strings.TrimSpace(code))
+}
+
+// BindCDKRedemptionToken preview 成功后：码 ↔ redemption_token
+func BindCDKRedemptionToken(cdkCode, redemptionToken string) error {
+	if DB == nil {
+		return fmt.Errorf("db not ready")
+	}
+	code := normalizeCDKCode(cdkCode)
+	tok := strings.TrimSpace(redemptionToken)
+	if code == "" || tok == "" {
+		return nil
+	}
+	_, err := DB.Exec(`
+		INSERT INTO cdk_session_bindings (cdk_code, session_payload, redemption_token, updated_at)
+		VALUES (?, '', ?, CURRENT_TIMESTAMP)
+		ON CONFLICT(cdk_code) DO UPDATE SET
+			redemption_token = excluded.redemption_token,
+			updated_at = CURRENT_TIMESTAMP
+	`, code, tok)
+	return err
+}
+
+// BindCDKSession 预检/兑换时写入 session（可按码或 redemption_token 关联）
+func BindCDKSession(cdkCode, redemptionToken, sessionPayload string) error {
+	if DB == nil {
+		return fmt.Errorf("db not ready")
+	}
+	code := normalizeCDKCode(cdkCode)
+	tok := strings.TrimSpace(redemptionToken)
+	sess := strings.TrimSpace(sessionPayload)
+	if sess == "" {
+		return nil
+	}
+	sess, err := SealSecret(sess)
+	if err != nil {
+		return err
+	}
+	// 优先已知码
+	if code != "" {
+		_, err := DB.Exec(`
+			INSERT INTO cdk_session_bindings (cdk_code, session_payload, redemption_token, updated_at)
+			VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+			ON CONFLICT(cdk_code) DO UPDATE SET
+				session_payload = excluded.session_payload,
+				redemption_token = COALESCE(NULLIF(excluded.redemption_token,''), cdk_session_bindings.redemption_token),
+				updated_at = CURRENT_TIMESTAMP
+		`, code, sess, tok)
+		return err
+	}
+	// 仅有 token：更新已绑定行
+	if tok != "" {
+		res, err := DB.Exec(`
+			UPDATE cdk_session_bindings
+			SET session_payload = ?, updated_at = CURRENT_TIMESTAMP
+			WHERE redemption_token = ?
+		`, sess, tok)
+		if err != nil {
+			return err
+		}
+		if n, _ := res.RowsAffected(); n > 0 {
+			return nil
+		}
+		// 尚无行：用 token 伪作 key 前缀保存（账单页仍建议用完整码）
+		_, err = DB.Exec(`
+			INSERT INTO cdk_session_bindings (cdk_code, session_payload, redemption_token, updated_at)
+			VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+		`, "RT:"+tok, sess, tok)
+		return err
+	}
+	return nil
+}
+
+// GetSessionByCDK 账单查询：凭卡密取绑定 session
+func GetSessionByCDK(cdkCode string) (string, error) {
+	if DB == nil {
+		return "", fmt.Errorf("db not ready")
+	}
+	code := normalizeCDKCode(cdkCode)
+	if code == "" {
+		return "", nil
+	}
+	var sess string
+	err := DB.QueryRow(`
+		SELECT session_payload FROM cdk_session_bindings
+		WHERE cdk_code = ? AND TRIM(session_payload) != ''
+	`, code).Scan(&sess)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return OpenSecret(sess), err
+}
+
+// CDKBinding 本地码 ↔ token ↔ session 绑定（公开兑换进度/账单依赖）
+type CDKBinding struct {
+	CDKCode         string
+	RedemptionToken string
+	SessionPayload  string
+	UpdatedAt       string
+}
+
+// GetBindingByCDK 按卡密取绑定（session 可为空：仅 preview 过）
+func GetBindingByCDK(cdkCode string) (*CDKBinding, error) {
+	if DB == nil {
+		return nil, fmt.Errorf("db not ready")
+	}
+	code := normalizeCDKCode(cdkCode)
+	if code == "" {
+		return nil, nil
+	}
+	var b CDKBinding
+	err := DB.QueryRow(`
+		SELECT cdk_code, COALESCE(redemption_token,''), COALESCE(session_payload,''), COALESCE(updated_at,'')
+		FROM cdk_session_bindings
+		WHERE cdk_code = ?
+	`, code).Scan(&b.CDKCode, &b.RedemptionToken, &b.SessionPayload, &b.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	b.SessionPayload = OpenSecret(b.SessionPayload)
+	return &b, nil
+}
+
+// FindCodeByRedemptionToken 预检绑 session 时反查完整卡密
+func FindCodeByRedemptionToken(redemptionToken string) (string, error) {
+	if DB == nil {
+		return "", fmt.Errorf("db not ready")
+	}
+	tok := strings.TrimSpace(redemptionToken)
+	if tok == "" {
+		return "", nil
+	}
+	var code string
+	err := DB.QueryRow(`
+		SELECT cdk_code FROM cdk_session_bindings
+		WHERE redemption_token = ?
+		LIMIT 1
+	`, tok).Scan(&code)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return code, err
+}
+
+func migrateCDKPlanTypes() error {
+	updates := []struct {
+		from string
+		to   string
+	}{
+		{"GPT-Pro", "pro"},
+		{"GPT-Plus", "5x"},
+		{"Pro", "pro"},
+		{"PLUS", "5x"},
+	}
+
+	for _, item := range updates {
+		if _, err := DB.Exec(`UPDATE cd_keys SET plan_type = ? WHERE plan_type = ?`, item.to, item.from); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func migrateLegacyCDKCodes() error {
+	rows, err := DB.Query(`SELECT id, code, plan_type FROM cd_keys`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	type item struct {
+		id       int64
+		code     string
+		planType string
+	}
+
+	var items []item
+	for rows.Next() {
+		var current item
+		if err := rows.Scan(&current.id, &current.code, &current.planType); err != nil {
+			return err
+		}
+		if strings.Count(current.code, "-") == 4 && len(current.code) >= 32 {
+			continue
+		}
+		items = append(items, current)
+	}
+
+	for _, current := range items {
+		newCode := legacyUUIDCode(current.planType, current.id)
+		if _, err := DB.Exec(`UPDATE cd_keys SET code = ? WHERE id = ?`, newCode, current.id); err != nil {
+			return err
+		}
+		if _, err := DB.Exec(`UPDATE recharge_tasks SET cdk_code = ? WHERE cdk_code = ?`, newCode, current.code); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func legacyUUIDCode(planType string, id int64) string {
+	seed := fmt.Sprintf("%s-%d-%d", planType, id, time.Now().UnixNano())
+	sum := sha1.Sum([]byte(seed))
+	hexID := hex.EncodeToString(sum[:16])
+	return fmt.Sprintf("%s-%s-%s-%s-%s", hexID[0:8], hexID[8:12], hexID[12:16], hexID[16:20], hexID[20:32])
+}
+
+// SaveCardplatformCDKCode 把完整码写入本站 SQLite（发码 / 从卡台同步 / 回填）。
+// 卡台列表通常只回 code_prefix；完整码以本站 DB 为准，列表若带回 code/full_code 也会落库。
+func SaveCardplatformCDKCode(upstreamID int64, code, prefix, plan string, feeMinor int64, country ...string) error {
+	return SaveCardplatformCDKCodeWithStatus(upstreamID, code, prefix, plan, feeMinor, "unused", country...)
+}
+
+// SaveCardplatformCDKCodeWithStatus 同上，并写入/更新 status。
+// country 省略表示这次写入没有地区信息，不能把已同步的地区擦掉。
+func SaveCardplatformCDKCodeWithStatus(upstreamID int64, code, prefix, plan string, feeMinor int64, status string, country ...string) error {
+	return SaveCardplatformCDKCodeForAccount(upstreamID, code, prefix, plan, feeMinor, status, 0, country...)
+}
+
+// SaveCardplatformCDKCodeForAccount 由发码调用方传实际账户；accountID=0 仅用于迁移前老码回填。
+func SaveCardplatformCDKCodeForAccount(upstreamID int64, code, prefix, plan string, feeMinor int64, status string, accountID int64, country ...string) error {
+	if DB == nil {
+		return fmt.Errorf("db not init")
+	}
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return fmt.Errorf("empty code")
+	}
+	prefix = strings.TrimSpace(prefix)
+	if prefix == "" && len(code) >= 14 {
+		prefix = code[:14]
+	}
+	plan = strings.TrimSpace(plan)
+	status = strings.TrimSpace(strings.ToLower(status))
+	if status == "" {
+		status = "unused"
+	}
+	// nil：旧缓存/导入没带地区。空字符串：这次发码或卡台响应明确是默认地区。
+	var region any
+	if len(country) > 0 {
+		region = strings.ToUpper(strings.TrimSpace(country[0]))
+	}
+	codeKind := CodeKindLegacy
+	if strings.HasPrefix(strings.ToUpper(code), "DN-") {
+		// 缓存同步进来的 DN- 码不能当 legacy 直送主台；标为 site 后会在列表显示
+		// “绑定降级”，兑换也会要求存在 binding，避免把本站码错误发给上游。
+		codeKind = CodeKindSite
+	}
+	if codeKind != CodeKindLegacy {
+		accountID = 0
+	}
+	_, err := DB.Exec(`
+		INSERT INTO cardplatform_cdk_codes
+			(upstream_id, code, code_prefix, plan, fee_amount_minor, status, code_kind, fulfilled_account_id, payment_country, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+		ON CONFLICT(code) DO UPDATE SET
+			upstream_id = excluded.upstream_id,
+			code_prefix = excluded.code_prefix,
+			plan = CASE WHEN excluded.plan != '' THEN excluded.plan ELSE cardplatform_cdk_codes.plan END,
+			fee_amount_minor = CASE WHEN excluded.fee_amount_minor > 0 THEN excluded.fee_amount_minor ELSE cardplatform_cdk_codes.fee_amount_minor END,
+			status = CASE WHEN excluded.status != '' THEN excluded.status ELSE cardplatform_cdk_codes.status END,
+			code_kind = CASE WHEN excluded.code_kind = 'site' THEN 'site' ELSE cardplatform_cdk_codes.code_kind END,
+			fulfilled_account_id = CASE
+				WHEN cardplatform_cdk_codes.fulfilled_account_id > 0 THEN cardplatform_cdk_codes.fulfilled_account_id
+				ELSE excluded.fulfilled_account_id
+			END,
+			payment_country = COALESCE(excluded.payment_country, cardplatform_cdk_codes.payment_country)
+	`, upstreamID, code, prefix, plan, feeMinor, status, codeKind, accountID, region)
+	if err != nil {
+		return fmt.Errorf("save cardplatform cdk: %w", err)
+	}
+	return nil
+}
+
+// UpdateCardplatformCDKStatus 按上游 id 更新本站缓存的状态（禁用/解禁后刷新列表）。
+// 本站 DN- 码的 upstream_id 恒为 0，调用方须改用 UpdateCardplatformCDKStatusByID。
+func UpdateCardplatformCDKStatus(upstreamID int64, status string) error {
+	if DB == nil || upstreamID == 0 {
+		return nil
+	}
+	status = strings.TrimSpace(strings.ToLower(status))
+	if status == "" {
+		return nil
+	}
+	_, err := DB.Exec(`UPDATE cardplatform_cdk_codes SET status = ? WHERE upstream_id = ?`, status, upstreamID)
+	return err
+}
+
+// UpdateCardplatformCDKStatusByID 按本表主键更新状态（本站 DN- 码必须走这里）。
+func UpdateCardplatformCDKStatusByID(id int64, status string) error {
+	if DB == nil || id <= 0 {
+		return nil
+	}
+	status = strings.TrimSpace(strings.ToLower(status))
+	if status == "" {
+		return nil
+	}
+	_, err := DB.Exec(`UPDATE cardplatform_cdk_codes SET status = ? WHERE id = ?`, status, id)
+	return err
+}
+
+// GetCardplatformCDKStatus 读本站缓存状态；无记录返回空串。
+func GetCardplatformCDKStatus(upstreamID int64) string {
+	if DB == nil || upstreamID == 0 {
+		return ""
+	}
+	var st string
+	err := DB.QueryRow(`SELECT COALESCE(status,'') FROM cardplatform_cdk_codes WHERE upstream_id = ? LIMIT 1`, upstreamID).Scan(&st)
+	if err != nil {
+		return ""
+	}
+	return strings.ToLower(strings.TrimSpace(st))
+}
+
+// CountCardplatformCDKCodes 本站已存完整码数量（运维/健康检查）。
+func CountCardplatformCDKCodes() int {
+	if DB == nil {
+		return 0
+	}
+	var n int
+	_ = DB.QueryRow(`SELECT COUNT(*) FROM cardplatform_cdk_codes`).Scan(&n)
+	return n
+}
+
+// StoredCDKCode 本站已存的完整码行。
+type StoredCDKCode struct {
+	UpstreamID         int64   `json:"id"`
+	RowID              int64   `json:"row_id"`
+	Code               string  `json:"code"`
+	CodePrefix         string  `json:"code_prefix"`
+	Plan               string  `json:"plan"`
+	FeeAmountMinor     int64   `json:"fee_amount_minor"`
+	Status             string  `json:"status"`
+	PaymentCountry     *string `json:"payment_country"` // nil=尚未同步，空字符串=默认菲律宾
+	CreatedAt          string  `json:"created_at"`
+	CodeKind           string  `json:"code_kind"`
+	IssueStatus        string  `json:"issue_status"`
+	DualEligible       bool    `json:"dual_eligible"`
+	BindingTotal       int     `json:"binding_total"`
+	BindingUsable      int     `json:"binding_usable"`
+	BindingSummary     string  `json:"binding_summary"`
+	FulfilledAccountID int64   `json:"fulfilled_account_id"`
+	FulfilledAccount   string  `json:"fulfilled_account"`
+	FulfilledProvider  string  `json:"fulfilled_provider"`
+	FailoverUsed       bool    `json:"failover_used"`
+	FailoverReason     string  `json:"failover_reason"`
+}
+
+// StoredCDKListQuery 管理端本站码列表筛选。
+type StoredCDKListQuery struct {
+	Plan             string
+	Q                string
+	Status           string
+	CodeKind         string // legacy / site / local_stock
+	BindingState     string // complete / degraded / none
+	FulfilledAccount int64
+	Failover         string // yes / no
+	Page             int
+	PageSize         int
+}
+
+// ListCardplatformStoredCDKCodes 列出本站 SQLite 中的完整码（可按 plan / q / status 过滤）。
+// limit<=0 时默认 5000，硬顶 10000。
+func ListCardplatformStoredCDKCodes(plan, q string, limit int) ([]StoredCDKCode, error) {
+	return ListCardplatformStoredCDKCodesFilter(plan, q, "", limit)
+}
+
+func cardplatformStoredWhere(plan, q, status string) (where string, args []any) {
+	plan = strings.TrimSpace(plan)
+	q = strings.TrimSpace(q)
+	status = strings.TrimSpace(strings.ToLower(status))
+	where = ` WHERE 1=1`
+	if plan != "" {
+		where += ` AND plan = ?`
+		args = append(args, plan)
+	}
+	if status != "" {
+		where += ` AND status = ?`
+		args = append(args, status)
+	}
+	if q != "" {
+		where += ` AND (
+			code LIKE ? COLLATE NOCASE
+			OR code_prefix LIKE ? COLLATE NOCASE
+			OR CAST(upstream_id AS TEXT) = ?
+			OR upstream_id IN (
+				SELECT upstream_id FROM cardplatform_cdk_notes
+				WHERE IFNULL(note, '') LIKE ? COLLATE NOCASE
+			)
+		)`
+		like := "%" + q + "%"
+		args = append(args, like, like, q, like)
+	}
+	return where, args
+}
+
+// CountCardplatformStoredCDKCodesFilter 符合过滤条件的本站完整码总数。
+func CountCardplatformStoredCDKCodesFilter(plan, q, status string) (int, error) {
+	if DB == nil {
+		return 0, fmt.Errorf("db not init")
+	}
+	where, args := cardplatformStoredWhere(plan, q, status)
+	var n int
+	err := DB.QueryRow(`SELECT COUNT(*) FROM cardplatform_cdk_codes`+where, args...).Scan(&n)
+	return n, err
+}
+
+// ListCardplatformStoredCDKCodesFilter 可按 status 过滤（旧接口：仅 LIMIT，无 OFFSET）。
+func ListCardplatformStoredCDKCodesFilter(plan, q, status string, limit int) ([]StoredCDKCode, error) {
+	list, _, err := ListCardplatformStoredCDKCodesPage(plan, q, status, 1, limit)
+	return list, err
+}
+
+// ListCardplatformStoredCDKCodesPage 分页列出本站完整码。
+// page 从 1 起；pageSize<=0 时默认 20；单页硬顶 500（列表），导出请用更大 limit 的旧路径或 pageSize 上限 10000。
+// 返回 list + 过滤后 total。
+func ListCardplatformStoredCDKCodesPage(plan, q, status string, page, pageSize int) ([]StoredCDKCode, int, error) {
+	return ListStoredCDKsDetailed(StoredCDKListQuery{
+		Plan: plan, Q: q, Status: status, Page: page, PageSize: pageSize,
+	})
+}
+
+// ListStoredCDKsDetailed 带双绑、履约台与 failover 元数据分页列出本站码。
+func ListStoredCDKsDetailed(query StoredCDKListQuery) ([]StoredCDKCode, int, error) {
+	if DB == nil {
+		return nil, 0, fmt.Errorf("db not init")
+	}
+	if query.Page < 1 {
+		query.Page = 1
+	}
+	if query.PageSize <= 0 {
+		query.PageSize = 20
+	}
+	if query.PageSize > 10000 {
+		query.PageSize = 10000
+	}
+	where, args := cardplatformStoredWhere(query.Plan, query.Q, query.Status)
+	kind := strings.ToLower(strings.TrimSpace(query.CodeKind))
+	if kind != "" {
+		where += ` AND COALESCE(code_kind, 'legacy') = ?`
+		args = append(args, kind)
+	}
+	switch strings.ToLower(strings.TrimSpace(query.BindingState)) {
+	case "complete":
+		where += ` AND COALESCE(code_kind,'legacy') = 'site'
+			AND (SELECT COUNT(*) FROM site_cdk_bindings b WHERE b.site_code_id = c.id) >= 2`
+	case "degraded":
+		where += ` AND COALESCE(code_kind,'legacy') = 'site'
+			AND (SELECT COUNT(*) FROM site_cdk_bindings b WHERE b.site_code_id = c.id) < 2`
+	case "none":
+		where += ` AND COALESCE(code_kind,'legacy') != 'site'`
+	}
+	if query.FulfilledAccount > 0 {
+		where += ` AND COALESCE(fulfilled_account_id,0) = ?`
+		args = append(args, query.FulfilledAccount)
+	}
+	switch strings.ToLower(strings.TrimSpace(query.Failover)) {
+	case "yes", "1", "true":
+		where += ` AND COALESCE(failover_used,0) = 1`
+	case "no", "0", "false":
+		where += ` AND COALESCE(failover_used,0) = 0`
+	}
+
+	var total int
+	if err := DB.QueryRow(`SELECT COUNT(*) FROM cardplatform_cdk_codes c`+where, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	offset := (query.Page - 1) * query.PageSize
+	sqlText := `
+		SELECT COALESCE(c.upstream_id,0), c.id, c.code, COALESCE(c.code_prefix,''), COALESCE(c.plan,''),
+		       COALESCE(c.fee_amount_minor,0), COALESCE(c.status,''), c.payment_country, COALESCE(c.created_at,''),
+		       COALESCE(c.code_kind,'legacy'), COALESCE(c.issue_status,'active'), COALESCE(c.dual_eligible,0),
+		       (SELECT COUNT(*) FROM site_cdk_bindings b WHERE b.site_code_id = c.id),
+		       (SELECT COUNT(*) FROM site_cdk_bindings b WHERE b.site_code_id = c.id
+		          AND lower(COALESCE(b.status,'')) IN ('unused','redeeming','reserved')),
+		       COALESCE((SELECT GROUP_CONCAT(
+		          COALESCE(a.name, '账户'||b.account_id) || ':' || COALESCE(b.status,'unknown'), ' / ')
+		          FROM site_cdk_bindings b
+		          LEFT JOIN card_platform_accounts a ON a.id = b.account_id
+		          WHERE b.site_code_id = c.id ORDER BY b.is_primary DESC, b.id ASC), ''),
+		       COALESCE(c.fulfilled_account_id,0),
+		       COALESCE((SELECT name FROM card_platform_accounts a WHERE a.id = c.fulfilled_account_id),''),
+		       COALESCE(c.fulfilled_provider,''), COALESCE(c.failover_used,0), COALESCE(c.failover_reason,'')
+		FROM cardplatform_cdk_codes c` + strings.Replace(where, " WHERE ", " WHERE ", 1) + `
+		ORDER BY created_at DESC, rowid DESC
+		LIMIT ? OFFSET ?`
+	args = append(args, query.PageSize, offset)
+	rows, err := DB.Query(sqlText, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	out := make([]StoredCDKCode, 0, query.PageSize)
+	for rows.Next() {
+		var it StoredCDKCode
+		var dual, failover int
+		var country sql.NullString
+		if err := rows.Scan(
+			&it.UpstreamID, &it.RowID, &it.Code, &it.CodePrefix, &it.Plan,
+			&it.FeeAmountMinor, &it.Status, &country, &it.CreatedAt,
+			&it.CodeKind, &it.IssueStatus, &dual,
+			&it.BindingTotal, &it.BindingUsable, &it.BindingSummary,
+			&it.FulfilledAccountID, &it.FulfilledAccount, &it.FulfilledProvider,
+			&failover, &it.FailoverReason,
+		); err != nil {
+			return nil, 0, err
+		}
+		it.DualEligible = dual != 0
+		it.FailoverUsed = failover != 0
+		if country.Valid {
+			s := country.String
+			it.PaymentCountry = &s
+		}
+		it.Code = strings.TrimSpace(it.Code)
+		if it.Code == "" {
+			continue
+		}
+		if it.Status == "" {
+			it.Status = "unused"
+		}
+		out = append(out, it)
+	}
+	return out, total, rows.Err()
+}
+
+// LookupCardplatformCDKCode 按上游 id 或 prefix 取完整码。
+func LookupCardplatformCDKCode(upstreamID int64, prefix string) (string, bool) {
+	if DB == nil {
+		return "", false
+	}
+	prefix = strings.TrimSpace(prefix)
+	var code string
+	if upstreamID > 0 {
+		err := DB.QueryRow(`SELECT code FROM cardplatform_cdk_codes WHERE upstream_id = ? ORDER BY created_at DESC LIMIT 1`, upstreamID).Scan(&code)
+		if err == nil && strings.TrimSpace(code) != "" {
+			return strings.TrimSpace(code), true
+		}
+	}
+	if prefix != "" {
+		err := DB.QueryRow(`SELECT code FROM cardplatform_cdk_codes WHERE code_prefix = ? OR code LIKE ? ORDER BY created_at DESC LIMIT 1`,
+			prefix, prefix+"%").Scan(&code)
+		if err == nil && strings.TrimSpace(code) != "" {
+			return strings.TrimSpace(code), true
+		}
+	}
+	return "", false
+}
+
+// ---- CDK 备注（本站）----
+
+const maxCDKNoteLen = 200
+
+// SetCardplatformCDKNote 写入/更新备注；note 空串表示清空。
+func SetCardplatformCDKNote(upstreamID int64, note string) error {
+	if DB == nil {
+		return fmt.Errorf("db not init")
+	}
+	if upstreamID <= 0 {
+		return fmt.Errorf("invalid upstream id")
+	}
+	note = strings.TrimSpace(note)
+	if len([]rune(note)) > maxCDKNoteLen {
+		return fmt.Errorf("备注最多 %d 字", maxCDKNoteLen)
+	}
+	if note == "" {
+		_, err := DB.Exec(`DELETE FROM cardplatform_cdk_notes WHERE upstream_id = ?`, upstreamID)
+		return err
+	}
+	_, err := DB.Exec(`
+		INSERT INTO cardplatform_cdk_notes (upstream_id, note, updated_at)
+		VALUES (?, ?, CURRENT_TIMESTAMP)
+		ON CONFLICT(upstream_id) DO UPDATE SET
+			note = excluded.note,
+			updated_at = CURRENT_TIMESTAMP
+	`, upstreamID, note)
+	return err
+}
+
+// ClearCardplatformCDKNotes 批量清空备注。
+func ClearCardplatformCDKNotes(ids []int64) (int, error) {
+	if DB == nil {
+		return 0, fmt.Errorf("db not init")
+	}
+	n := 0
+	for _, id := range ids {
+		if id <= 0 {
+			continue
+		}
+		res, err := DB.Exec(`DELETE FROM cardplatform_cdk_notes WHERE upstream_id = ?`, id)
+		if err != nil {
+			return n, err
+		}
+		if aff, _ := res.RowsAffected(); aff > 0 {
+			n++
+		}
+	}
+	return n, nil
+}
+
+// BatchSetCardplatformCDKNotes 批量写入同一备注；note 空则清空。
+func BatchSetCardplatformCDKNotes(ids []int64, note string) (ok int, failed []int64, err error) {
+	if DB == nil {
+		return 0, nil, fmt.Errorf("db not init")
+	}
+	note = strings.TrimSpace(note)
+	if len([]rune(note)) > maxCDKNoteLen {
+		return 0, nil, fmt.Errorf("备注最多 %d 字", maxCDKNoteLen)
+	}
+	for _, id := range ids {
+		if id <= 0 {
+			failed = append(failed, id)
+			continue
+		}
+		if e := SetCardplatformCDKNote(id, note); e != nil {
+			failed = append(failed, id)
+			continue
+		}
+		ok++
+	}
+	return ok, failed, nil
+}
+
+// GetCardplatformCDKNote 单条备注。
+func GetCardplatformCDKNote(upstreamID int64) string {
+	if DB == nil || upstreamID <= 0 {
+		return ""
+	}
+	var note string
+	_ = DB.QueryRow(`SELECT COALESCE(note,'') FROM cardplatform_cdk_notes WHERE upstream_id = ?`, upstreamID).Scan(&note)
+	return strings.TrimSpace(note)
+}
+
+// MapCardplatformCDKNotes 批量取备注 map[upstream_id]note。
+func MapCardplatformCDKNotes(ids []int64) map[int64]string {
+	out := map[int64]string{}
+	if DB == nil || len(ids) == 0 {
+		return out
+	}
+	// de-dup
+	seen := map[int64]struct{}{}
+	uniq := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		if id <= 0 {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		uniq = append(uniq, id)
+	}
+	if len(uniq) == 0 {
+		return out
+	}
+	// SQLite IN clause
+	ph := make([]string, len(uniq))
+	args := make([]any, len(uniq))
+	for i, id := range uniq {
+		ph[i] = "?"
+		args[i] = id
+	}
+	q := `SELECT upstream_id, COALESCE(note,'') FROM cardplatform_cdk_notes WHERE upstream_id IN (` + strings.Join(ph, ",") + `)`
+	rows, err := DB.Query(q, args...)
+	if err != nil {
+		return out
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		var note string
+		if err := rows.Scan(&id, &note); err != nil {
+			continue
+		}
+		note = strings.TrimSpace(note)
+		if note != "" {
+			out[id] = note
+		}
+	}
+	return out
+}
+
+// ---- 代理失败换码 ----
+
+func HashCDKCode(code string) string {
+	code = strings.ToUpper(strings.TrimSpace(code))
+	sum := sha256.Sum256([]byte(code))
+	return hex.EncodeToString(sum[:])
+}
+
+// LookupStoredCDKByCode 按完整码查本站缓存。
+func LookupStoredCDKByCode(code string) (upstreamID int64, plan, prefix, status string, ok bool) {
+	if DB == nil {
+		return 0, "", "", "", false
+	}
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return 0, "", "", "", false
+	}
+	err := DB.QueryRow(`
+		SELECT COALESCE(upstream_id,0), COALESCE(plan,''), COALESCE(code_prefix,''), COALESCE(status,'')
+		FROM cardplatform_cdk_codes WHERE upper(trim(code)) = upper(trim(?))
+		ORDER BY created_at DESC LIMIT 1
+	`, code).Scan(&upstreamID, &plan, &prefix, &status)
+	if err != nil {
+		return 0, "", "", "", false
+	}
+	return upstreamID, plan, prefix, status, true
+}
+
+func AgentCDKAlreadyExchanged(codeHash string) bool {
+	if DB == nil || codeHash == "" {
+		return false
+	}
+	var n int
+	_ = DB.QueryRow(`SELECT COUNT(*) FROM agent_cdk_exchanges WHERE old_code_hash = ?`, codeHash).Scan(&n)
+	return n > 0
+}
+
+// ErrExchangeClaimed 该旧码已有换码记录（进行中或已完成）。
+var ErrExchangeClaimed = errors.New("cdk exchange already claimed")
+
+// ClaimAgentCDKExchange 换码前先占位：old_code_hash 唯一，并发请求只有一个能拿到。
+func ClaimAgentCDKExchange(oldHash, ip string) error {
+	if DB == nil {
+		return fmt.Errorf("db not init")
+	}
+	_, err := DB.Exec(`
+		INSERT INTO agent_cdk_exchanges (old_code_hash, status, ip, created_at)
+		VALUES (?, 'pending', ?, CURRENT_TIMESTAMP)
+	`, oldHash, ip)
+	if err != nil && strings.Contains(strings.ToLower(err.Error()), "unique") {
+		return ErrExchangeClaimed
+	}
+	return err
+}
+
+// ReleaseAgentCDKExchange 换码未完成时撤销占位，允许稍后重试。已完成的记录不会被删。
+func ReleaseAgentCDKExchange(oldHash string) {
+	if DB == nil {
+		return
+	}
+	_, _ = DB.Exec(`DELETE FROM agent_cdk_exchanges WHERE old_code_hash = ? AND status = 'pending'`, oldHash)
+}
+
+// CompleteAgentCDKExchange 新码发出后补全占位行。
+func CompleteAgentCDKExchange(oldHash string, oldID, newID int64, oldPrefix, newPrefix, plan string, orderID int64, orderStatus string) error {
+	if DB == nil {
+		return fmt.Errorf("db not init")
+	}
+	_, err := DB.Exec(`
+		UPDATE agent_cdk_exchanges
+		SET status = 'done', old_upstream_id = ?, new_upstream_id = ?, old_code_prefix = ?, new_code_prefix = ?,
+		    plan = ?, order_id = ?, order_status = ?
+		WHERE old_code_hash = ?
+	`, oldID, newID, oldPrefix, newPrefix, plan, orderID, orderStatus, oldHash)
+	return err
+}
+
+// migrateAgentExchangeClaim 加 status 列与 old_code_hash 唯一索引。
+// 历史上并发换出的重复行保留（改名避开唯一约束），便于对账。
+func migrateAgentExchangeClaim() error {
+	if DB == nil {
+		return nil
+	}
+	var n int
+	if err := DB.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('agent_cdk_exchanges') WHERE name='status'`).Scan(&n); err != nil {
+		return err
+	}
+	if n == 0 {
+		if _, err := DB.Exec(`ALTER TABLE agent_cdk_exchanges ADD COLUMN status TEXT DEFAULT 'done'`); err != nil {
+			return err
+		}
+	}
+	res, err := DB.Exec(`
+		UPDATE agent_cdk_exchanges
+		SET old_code_hash = old_code_hash || ':dup:' || id
+		WHERE id NOT IN (SELECT MIN(id) FROM agent_cdk_exchanges GROUP BY old_code_hash)
+	`)
+	if err != nil {
+		return err
+	}
+	if dup, _ := res.RowsAffected(); dup > 0 {
+		log.Printf("⚠ agent_cdk_exchanges: 发现 %d 条重复换码记录（同一旧码换出多张新码），已标记 :dup:，请对账", dup)
+	}
+	_, err = DB.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_ex_old_hash_uniq ON agent_cdk_exchanges(old_code_hash)`)
+	return err
+}
+
+// ---- 自动选卡权重配置 ----
+
+// CardSelectionRule 一条选卡规则（按 sort_order 排列优先级）。
+type CardSelectionRule struct {
+	AccountID   int64  `json:"account_id,omitempty"`
+	ID          int64  `json:"id"`
+	SortOrder   int    `json:"sort_order"`
+	PlanKey     string `json:"plan_key"`
+	DisplayName string `json:"display_name"`
+	BinPrefix   string `json:"bin_prefix"`
+	Channel     string `json:"channel"`
+	Enabled     bool   `json:"enabled"`
+	CreatedAt   string `json:"created_at"`
+}
+
+// PlanStatusCache 卡台产品状态缓存条目。
+type PlanStatusCache struct {
+	AccountID          int64   `json:"account_id,omitempty"`
+	PlanKey            string  `json:"plan_key"`
+	Label              string  `json:"label"`
+	Online             bool    `json:"online"`
+	ServiceFeeUsdMinor int64   `json:"service_fee_usd_minor"`
+	ServiceFeeUSD      float64 `json:"service_fee_usd"`
+	SyncedAt           string  `json:"synced_at"`
+}
+
+// GetCardSelectionRules 按 sort_order 返回所有选卡规则。
+func GetCardSelectionRules() ([]CardSelectionRule, error) {
+	if DB == nil {
+		return nil, fmt.Errorf("db not ready")
+	}
+	rows, err := DB.Query(`
+		SELECT id, sort_order, plan_key, display_name,
+		       COALESCE(bin_prefix,''), COALESCE(channel,''),
+		       enabled, COALESCE(created_at,'')
+		FROM card_selection_rules ORDER BY sort_order ASC, id ASC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []CardSelectionRule
+	for rows.Next() {
+		var r CardSelectionRule
+		var enabled int
+		if err := rows.Scan(&r.ID, &r.SortOrder, &r.PlanKey, &r.DisplayName,
+			&r.BinPrefix, &r.Channel, &enabled, &r.CreatedAt); err != nil {
+			return nil, err
+		}
+		r.Enabled = enabled == 1
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// SetCardSelectionRules 在事务内整体替换选卡规则列表。
+func SetCardSelectionRules(rules []CardSelectionRule) error {
+	if DB == nil {
+		return fmt.Errorf("db not ready")
+	}
+	tx, err := DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`DELETE FROM card_selection_rules`); err != nil {
+		return err
+	}
+	for i, r := range rules {
+		sortOrder := r.SortOrder
+		if sortOrder == 0 {
+			sortOrder = i + 1
+		}
+		enabled := 0
+		if r.Enabled {
+			enabled = 1
+		}
+		if _, err := tx.Exec(`
+			INSERT INTO card_selection_rules (sort_order, plan_key, display_name, bin_prefix, channel, enabled)
+			VALUES (?, ?, ?, ?, ?, ?)
+		`, sortOrder, strings.TrimSpace(r.PlanKey), strings.TrimSpace(r.DisplayName),
+			strings.TrimSpace(r.BinPrefix), strings.TrimSpace(r.Channel), enabled); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// GetPlanStatusCache 返回所有产品状态缓存（slice，供列表展示）。
+func GetPlanStatusCache() ([]PlanStatusCache, error) {
+	if DB == nil {
+		return nil, fmt.Errorf("db not ready")
+	}
+	rows, err := DB.Query(`
+		SELECT plan_key, COALESCE(label,''), online,
+		       COALESCE(service_fee_usd_minor,0), COALESCE(synced_at,'')
+		FROM plan_status_cache ORDER BY plan_key
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []PlanStatusCache
+	for rows.Next() {
+		var p PlanStatusCache
+		var online int
+		if err := rows.Scan(&p.PlanKey, &p.Label, &online,
+			&p.ServiceFeeUsdMinor, &p.SyncedAt); err != nil {
+			return nil, err
+		}
+		p.Online = online == 1
+		p.ServiceFeeUSD = float64(p.ServiceFeeUsdMinor) / 100.0
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// GetPlanStatusCacheMap 返回 plan_key → PlanStatusCache 的 map，方便 O(1) 查找。
+func GetPlanStatusCacheMap() (map[string]PlanStatusCache, error) {
+	list, err := GetPlanStatusCache()
+	if err != nil {
+		return nil, err
+	}
+	m := make(map[string]PlanStatusCache, len(list))
+	for _, p := range list {
+		m[p.PlanKey] = p
+	}
+	return m, nil
+}
+
+// UpsertPlanStatus 插入或更新一条产品状态缓存。
+func UpsertPlanStatus(planKey, label string, online bool, feeMinor int64) error {
+	if DB == nil {
+		return fmt.Errorf("db not ready")
+	}
+	onlineInt := 0
+	if online {
+		onlineInt = 1
+	}
+	_, err := DB.Exec(`
+		INSERT INTO plan_status_cache (plan_key, label, online, service_fee_usd_minor, synced_at)
+		VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+		ON CONFLICT(plan_key) DO UPDATE SET
+			label = excluded.label,
+			online = excluded.online,
+			service_fee_usd_minor = excluded.service_fee_usd_minor,
+			synced_at = excluded.synced_at
+	`, strings.TrimSpace(planKey), label, onlineInt, feeMinor)
+	return err
+}
+
+// CardProductCache 卡台实体产品缓存条目。
+type CardProductCache struct {
+	AccountID   int64    `json:"account_id,omitempty"`
+	ProductCode string   `json:"product_code"`
+	Issuer      string   `json:"issuer"`
+	BIN         string   `json:"bin"`
+	Network     string   `json:"network"`
+	IssuingArea string   `json:"issuing_area"`
+	Scene       string   `json:"scene"`
+	CardGroup   string   `json:"card_group"`
+	Description string   `json:"description"`
+	BinHeads    []string `json:"bin_heads"` // 反序列化自 JSON 存储
+	Enabled     bool     `json:"enabled"`
+	SuspendedAt string   `json:"suspended_at"`
+	SyncedAt    string   `json:"synced_at"`
+}
+
+// UpsertCardProduct 插入或更新一条产品缓存。
+func UpsertCardProduct(p CardProductCache) error {
+	if DB == nil {
+		return fmt.Errorf("db not ready")
+	}
+	onlineInt := 0
+	if p.Enabled {
+		onlineInt = 1
+	}
+	binHeadsJSON, _ := json.Marshal(p.BinHeads)
+	_, err := DB.Exec(`
+		INSERT INTO card_product_cache
+			(product_code, issuer, bin, network, issuing_area, scene, card_group,
+			 description, bin_heads, enabled, suspended_at, synced_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+		ON CONFLICT(product_code) DO UPDATE SET
+			issuer = excluded.issuer,
+			bin = excluded.bin,
+			network = excluded.network,
+			issuing_area = excluded.issuing_area,
+			scene = excluded.scene,
+			card_group = excluded.card_group,
+			description = excluded.description,
+			bin_heads = excluded.bin_heads,
+			enabled = excluded.enabled,
+			suspended_at = excluded.suspended_at,
+			synced_at = excluded.synced_at
+	`, p.ProductCode, p.Issuer, p.BIN, p.Network, p.IssuingArea, p.Scene, p.CardGroup,
+		p.Description, string(binHeadsJSON), onlineInt, p.SuspendedAt)
+	return err
+}
+
+// MarkCardProductsOfflineExcept 删除卡台不再返回的卡段缓存。
+// 下架 BIN 不再标成「已下线」留在后台。present 为空时不动，避免一次空响应清掉全表。
+func MarkCardProductsOfflineExcept(present map[string]bool) (int, error) {
+	if DB == nil {
+		return 0, fmt.Errorf("db not ready")
+	}
+	if len(present) == 0 {
+		return 0, nil
+	}
+	rows, err := DB.Query(`SELECT product_code FROM card_product_cache`)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+	var stale []string
+	for rows.Next() {
+		var code string
+		if err := rows.Scan(&code); err != nil {
+			return 0, err
+		}
+		code = strings.TrimSpace(code)
+		if code == "" || present[code] {
+			continue
+		}
+		stale = append(stale, code)
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, code := range stale {
+		res, err := DB.Exec(`DELETE FROM card_product_cache WHERE product_code = ?`, code)
+		if err != nil {
+			return n, err
+		}
+		if aff, _ := res.RowsAffected(); aff > 0 {
+			n++
+		}
+	}
+	return n, nil
+}
+
+// GetCardProducts 返回所有产品缓存（在线优先，再按 product_code）。
+func GetCardProducts() ([]CardProductCache, error) {
+	if DB == nil {
+		return nil, fmt.Errorf("db not ready")
+	}
+	rows, err := DB.Query(`
+		SELECT product_code, COALESCE(issuer,''), COALESCE(bin,''), COALESCE(network,''),
+		       COALESCE(issuing_area,''), COALESCE(scene,''), COALESCE(card_group,''),
+		       COALESCE(description,''), COALESCE(bin_heads,'[]'), enabled,
+		       COALESCE(suspended_at,''), COALESCE(synced_at,'')
+		FROM card_product_cache
+		ORDER BY enabled DESC, network, product_code
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []CardProductCache
+	for rows.Next() {
+		var p CardProductCache
+		var enabled int
+		var binHeadsJSON string
+		if err := rows.Scan(&p.ProductCode, &p.Issuer, &p.BIN, &p.Network,
+			&p.IssuingArea, &p.Scene, &p.CardGroup, &p.Description,
+			&binHeadsJSON, &enabled, &p.SuspendedAt, &p.SyncedAt); err != nil {
+			return nil, err
+		}
+		p.Enabled = enabled == 1
+		_ = json.Unmarshal([]byte(binHeadsJSON), &p.BinHeads)
+		if p.BinHeads == nil {
+			p.BinHeads = []string{}
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// migrateDefaultCardSelectionRules 首次启动时写入默认选卡优先级。
+func migrateDefaultCardSelectionRules() error {
+	if DB == nil {
+		return nil
+	}
+	var count int
+	if err := DB.QueryRow(`SELECT COUNT(*) FROM card_selection_rules`).Scan(&count); err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil // 已有用户配置，不覆盖
+	}
+	defaults := []struct {
+		sortOrder   int
+		planKey     string
+		displayName string
+		binPrefix   string
+		channel     string
+	}{
+		// 只写入美卡；香港卡（PP5450RC/PP5583RC）不进默认优先级
+		{1, "P5378OX", "渠道1 · P5378OX · 537872 · 美国通用卡", "537872", "ch1"},
+		{2, "PP5259RC", "渠道4 · PP5259RC · 525962/555671/544015 · 美国随机", "525962", "ch4"},
+		{3, "USMAB01", "渠道3 · USMAB01 · 555671/525962/544015 · AI订阅通用", "USMAB01", "ch3"},
+	}
+	for _, d := range defaults {
+		if _, err := DB.Exec(`
+			INSERT INTO card_selection_rules (sort_order, plan_key, display_name, bin_prefix, channel, enabled)
+			VALUES (?, ?, ?, ?, ?, 1)
+		`, d.sortOrder, d.planKey, d.displayName, d.binPrefix, d.channel); err != nil {
+			log.Printf("migrateDefaultCardSelectionRules: %v", err)
+		}
+	}
+	log.Println("✓ 已写入默认选卡优先级规则")
+	return nil
+}
+
+// ---- 管理员批量充值 ----
+
+// AdminRechargeBatch 一次批量充值任务。
+type AdminRechargeBatch struct {
+	BatchID     string `json:"batch_id"`
+	Operator    string `json:"operator"`
+	AgentUserID int64  `json:"agent_user_id,omitempty"`
+	AgentName   string `json:"agent_name,omitempty"`
+	Source      string `json:"source,omitempty"`
+	Plan        string `json:"plan"`
+	// PaymentCountry 自动发码的付款地区；空 = 默认（菲律宾）或代理路径（地区随码）
+	PaymentCountry string `json:"payment_country"`
+	Total          int    `json:"total"`
+	Success        int    `json:"success"`
+	Failed         int    `json:"failed"`
+	Status         string `json:"status"`
+	Message        string `json:"message"`
+	CreatedAt      string `json:"created_at"`
+	UpdatedAt      string `json:"updated_at"`
+}
+
+// AdminRechargeItem 批次内一条充值明细。
+// RedemptionToken / CDKCode / GptPassword / EmailPassword / Session 带 json:"-"，
+// 绝不随列表/详情接口返回给前端；凭据只走独立导出接口。
+// CardID 预留：表上有 card_id INTEGER DEFAULT 0，供未来回写卡台 card id。
+// 当前 SELECT/INSERT/Patch 都不碰该列（INSERT 不列它则走 DEFAULT 0），避免误扫炸。
+type AdminRechargeItem struct {
+	BatchID         string `json:"batch_id"`
+	Seq             int    `json:"seq"`
+	ClientRequestID string `json:"client_request_id"`
+	ClientReference string `json:"client_reference,omitempty"`
+	Plan            string `json:"plan"`
+	CredMode        string `json:"cred_mode"`
+	AccountEmail    string `json:"account_email"`
+	GptPassword     string `json:"-"`
+	EmailPassword   string `json:"-"`
+	Session         string `json:"-"`
+	SessionHash     string `json:"-"`
+	CDKCode         string `json:"-"`
+	RedemptionToken string `json:"-"`
+	// CardID reserved for future card-platform card id write-back. Not selected or patched yet.
+	CardID          int    `json:"-"`
+	UpstreamOrderID string `json:"upstream_order_id"`
+	Status          string `json:"status"`
+	Message         string `json:"message"`
+	CreatedAt       string `json:"created_at"`
+	UpdatedAt       string `json:"updated_at"`
+}
+
+// AdminRechargeItemPatch 局部更新，只写非 nil 字段。
+type AdminRechargeItemPatch struct {
+	Status          *string
+	Message         *string
+	AccountEmail    *string
+	CDKCode         *string
+	RedemptionToken *string
+	UpstreamOrderID *string
+}
+
+// adminRechargeItemCols 显式列清单，不含 reserved card_id，避免 Scan 与结构体字段错位。
+const adminRechargeItemCols = `batch_id, seq, client_request_id, COALESCE(plan,''), COALESCE(cred_mode,''),
+	COALESCE(account_email,''), COALESCE(cdk_code,''), COALESCE(redemption_token,''),
+	COALESCE(upstream_order_id,''), COALESCE(status,''), COALESCE(message,''), COALESCE(updated_at,'')`
+
+func scanAdminRechargeItem(s interface{ Scan(...any) error }) (AdminRechargeItem, error) {
+	var it AdminRechargeItem
+	err := s.Scan(&it.BatchID, &it.Seq, &it.ClientRequestID, &it.Plan, &it.CredMode,
+		&it.AccountEmail, &it.CDKCode, &it.RedemptionToken,
+		&it.UpstreamOrderID, &it.Status, &it.Message, &it.UpdatedAt)
+	return it, err
+}
+
+func scanAdminRechargeItemExport(s interface{ Scan(...any) error }) (AdminRechargeItem, error) {
+	var it AdminRechargeItem
+	err := s.Scan(&it.BatchID, &it.Seq, &it.ClientRequestID, &it.Plan, &it.CredMode,
+		&it.AccountEmail, &it.CDKCode, &it.RedemptionToken,
+		&it.UpstreamOrderID, &it.Status, &it.Message, &it.UpdatedAt,
+		&it.GptPassword, &it.EmailPassword, &it.Session)
+	it.GptPassword = OpenSecret(it.GptPassword)
+	it.EmailPassword = OpenSecret(it.EmailPassword)
+	it.Session = OpenSecret(it.Session)
+	return it, err
+}
+
+// CreateAdminRechargeBatch 在一个事务里写入批次与全部明细。
+func CreateAdminRechargeBatch(b AdminRechargeBatch, fingerprint string, items []AdminRechargeItem) error {
+	if DB == nil {
+		return fmt.Errorf("db not initialized")
+	}
+	tx, err := DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := tx.Exec(`
+		INSERT INTO admin_recharge_batches (batch_id, operator, agent_user_id, source, plan, payment_country, total, status, fingerprint, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+	`, b.BatchID, b.Operator, b.AgentUserID, nullIfEmpty(b.Source), b.Plan, b.PaymentCountry, b.Total, b.Status, fingerprint); err != nil {
+		return err
+	}
+	stmt, err := tx.Prepare(`
+		INSERT INTO admin_recharge_items
+			(batch_id, seq, client_request_id, client_reference, plan, cred_mode, account_email,
+			 gpt_password, email_password, session, session_hash, cdk_code, status, message, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	for _, it := range items {
+		gptPw, err := SealSecret(it.GptPassword)
+		if err != nil {
+			return err
+		}
+		mailPw, err := SealSecret(it.EmailPassword)
+		if err != nil {
+			return err
+		}
+		sess, err := SealSecret(it.Session)
+		if err != nil {
+			return err
+		}
+		if _, err := stmt.Exec(it.BatchID, it.Seq, it.ClientRequestID, it.ClientReference, it.Plan,
+			it.CredMode, it.AccountEmail, gptPw, mailPw, sess, it.SessionHash,
+			nullIfEmpty(it.CDKCode), it.Status, it.Message); err != nil {
+			return err
+		}
+		if code := strings.TrimSpace(it.CDKCode); code != "" {
+			row, ok := LookupStoredCDKDetail(code)
+			if !ok {
+				return fmt.Errorf("cdk not found: %s", code)
+			}
+			// 条件占位：同一张码并发提交两次时，两个事务都通过了上层只读校验，
+			// 只有先到的能改到行。没改到说明码已被占用/消耗，整批回滚。
+			res, rerr := tx.Exec(`
+				UPDATE cardplatform_cdk_codes SET status = 'reserved'
+				WHERE id = ? AND lower(COALESCE(status,'')) IN ('', 'unused')
+			`, row.ID)
+			if rerr != nil {
+				return rerr
+			}
+			if n, _ := res.RowsAffected(); n != 1 {
+				return fmt.Errorf("%w（code=%s）", ErrCDKNotReservable, code)
+			}
+		}
+	}
+	return tx.Commit()
+}
+
+func nullIfEmpty(s string) interface{} {
+	if strings.TrimSpace(s) == "" {
+		return nil
+	}
+	return s
+}
+
+// FindRecentAdminRechargeBatchByFingerprint 查同一操作员在窗口期内提交过的相同批次（防误双击重复扣款）。
+func FindRecentAdminRechargeBatchByFingerprint(fingerprint string, withinSeconds int) (string, error) {
+	if DB == nil || strings.TrimSpace(fingerprint) == "" {
+		return "", nil
+	}
+	var batchID string
+	err := DB.QueryRow(`
+		SELECT batch_id FROM admin_recharge_batches
+		WHERE fingerprint = ?
+		  AND created_at >= datetime('now', ?)
+		ORDER BY created_at DESC LIMIT 1
+	`, fingerprint, fmt.Sprintf("-%d seconds", withinSeconds)).Scan(&batchID)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return batchID, err
+}
+
+// GetAdminRechargeBatch 取批次头；不存在返回 nil。
+func GetAdminRechargeBatch(batchID string) (*AdminRechargeBatch, error) {
+	if DB == nil {
+		return nil, fmt.Errorf("db not initialized")
+	}
+	var b AdminRechargeBatch
+	err := DB.QueryRow(`
+		SELECT batch_id, COALESCE(operator,''), COALESCE(plan,''), COALESCE(payment_country,''), total,
+		       COALESCE(status,''), COALESCE(message,''), COALESCE(created_at,''), COALESCE(updated_at,'')
+		FROM admin_recharge_batches WHERE batch_id = ?
+	`, batchID).Scan(&b.BatchID, &b.Operator, &b.Plan, &b.PaymentCountry, &b.Total, &b.Status, &b.Message, &b.CreatedAt, &b.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &b, nil
+}
+
+// ListAdminRechargeBatches 批次列表（倒序）。
+// AdminBatchFilter 管理端批次列表筛选。Source: ""=全部 / "self"=自营 / "agent"=代理渠道。
+type AdminBatchFilter struct {
+	Limit       int
+	AgentUserID int64
+	Source      string
+}
+
+func ListAdminRechargeBatches(f AdminBatchFilter) ([]AdminRechargeBatch, error) {
+	if DB == nil {
+		return nil, fmt.Errorf("db not initialized")
+	}
+	limit := f.Limit
+	if limit < 1 || limit > 200 {
+		limit = 50
+	}
+	where := []string{"1=1"}
+	args := []interface{}{}
+	if f.AgentUserID > 0 {
+		where = append(where, "COALESCE(b.agent_user_id,0) = ?")
+		args = append(args, f.AgentUserID)
+	} else {
+		switch strings.ToLower(strings.TrimSpace(f.Source)) {
+		case "agent":
+			where = append(where, "COALESCE(b.agent_user_id,0) > 0")
+		case "self", "admin":
+			where = append(where, "COALESCE(b.agent_user_id,0) = 0")
+		}
+	}
+	args = append(args, limit)
+
+	rows, err := DB.Query(`
+		SELECT b.batch_id, COALESCE(b.operator,''), COALESCE(b.agent_user_id,0),
+		       COALESCE(a.display_name, a.username, ''),
+		       COALESCE(b.source,''), COALESCE(b.plan,''), COALESCE(b.payment_country,''), b.total,
+		       COALESCE(b.status,''), COALESCE(b.message,''), COALESCE(b.created_at,''), COALESCE(b.updated_at,''),
+		       COALESCE((SELECT COUNT(*) FROM admin_recharge_items i WHERE i.batch_id = b.batch_id AND i.status = 'success'), 0),
+		       COALESCE((SELECT COUNT(*) FROM admin_recharge_items i WHERE i.batch_id = b.batch_id AND i.status = 'failed'), 0)
+		FROM admin_recharge_batches b
+		LEFT JOIN agent_users a ON a.id = b.agent_user_id
+		WHERE `+strings.Join(where, " AND ")+`
+		ORDER BY b.created_at DESC LIMIT ?
+	`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]AdminRechargeBatch, 0, limit)
+	for rows.Next() {
+		var b AdminRechargeBatch
+		if err := rows.Scan(&b.BatchID, &b.Operator, &b.AgentUserID, &b.AgentName, &b.Source, &b.Plan, &b.PaymentCountry, &b.Total,
+			&b.Status, &b.Message, &b.CreatedAt, &b.UpdatedAt, &b.Success, &b.Failed); err != nil {
+			return nil, err
+		}
+		out = append(out, b)
+	}
+	return out, rows.Err()
+}
+
+// ListAdminRechargeItemsForExport 按 seq 返回批次明细，含导出用凭据列。
+// 仅供服务端生成 Excel；不要把结果直接 JSON 给浏览器。
+func ListAdminRechargeItemsForExport(batchID string) ([]AdminRechargeItem, error) {
+	if DB == nil {
+		return nil, fmt.Errorf("db not initialized")
+	}
+	rows, err := DB.Query(`SELECT `+adminRechargeItemCols+`,
+		COALESCE(gpt_password,''), COALESCE(email_password,''), COALESCE(session,'')
+		FROM admin_recharge_items WHERE batch_id = ? ORDER BY seq`, batchID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []AdminRechargeItem
+	for rows.Next() {
+		it, err := scanAdminRechargeItemExport(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, it)
+	}
+	return out, rows.Err()
+}
+
+// ListAdminRechargeItems 按 seq 返回批次明细。
+func ListAdminRechargeItems(batchID string) ([]AdminRechargeItem, error) {
+	if DB == nil {
+		return nil, fmt.Errorf("db not initialized")
+	}
+	rows, err := DB.Query(`SELECT `+adminRechargeItemCols+`
+		FROM admin_recharge_items WHERE batch_id = ? ORDER BY seq`, batchID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []AdminRechargeItem
+	for rows.Next() {
+		it, err := scanAdminRechargeItem(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, it)
+	}
+	return out, rows.Err()
+}
+
+// GetAdminRechargeItemByClientRequestID 按 client_request_id 取单条明细。
+func GetAdminRechargeItemByClientRequestID(clientRequestID string) (*AdminRechargeItem, error) {
+	if DB == nil {
+		return nil, fmt.Errorf("db not initialized")
+	}
+	clientRequestID = strings.TrimSpace(clientRequestID)
+	if clientRequestID == "" {
+		return nil, nil
+	}
+	row := DB.QueryRow(`SELECT `+adminRechargeItemCols+`
+		FROM admin_recharge_items WHERE client_request_id = ? LIMIT 1`, clientRequestID)
+	it, err := scanAdminRechargeItem(row)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &it, nil
+}
+
+// ListInFlightAdminRechargeItems 取重启后仍需对齐上游状态的明细（已拿到 token 但未终态）。
+func ListInFlightAdminRechargeItems() ([]AdminRechargeItem, error) {
+	if DB == nil {
+		return nil, fmt.Errorf("db not initialized")
+	}
+	rows, err := DB.Query(`SELECT ` + adminRechargeItemCols + `
+		FROM admin_recharge_items
+		WHERE status IN ('submitted','processing','unknown')
+		  AND COALESCE(redemption_token,'') <> ''
+		ORDER BY batch_id, seq`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []AdminRechargeItem
+	for rows.Next() {
+		it, err := scanAdminRechargeItem(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, it)
+	}
+	return out, rows.Err()
+}
+
+// PatchAdminRechargeItem 按 client_request_id 局部更新明细。
+func PatchAdminRechargeItem(clientRequestID string, p AdminRechargeItemPatch) error {
+	if DB == nil {
+		return fmt.Errorf("db not initialized")
+	}
+	sets := make([]string, 0, 6)
+	args := make([]any, 0, 7)
+	add := func(col string, v *string) {
+		if v != nil {
+			sets = append(sets, col+" = ?")
+			args = append(args, *v)
+		}
+	}
+	add("status", p.Status)
+	add("message", p.Message)
+	add("account_email", p.AccountEmail)
+	add("cdk_code", p.CDKCode)
+	add("redemption_token", p.RedemptionToken)
+	add("upstream_order_id", p.UpstreamOrderID)
+	if len(sets) == 0 {
+		return nil
+	}
+	sets = append(sets, "updated_at = CURRENT_TIMESTAMP")
+	args = append(args, clientRequestID)
+	where := ` WHERE client_request_id = ?`
+	// 终态单向：已定论的明细不允许被改回非终态，否则「重试」接口与仍在跑的批次
+	// 协程会互相覆盖（见 C9）。
+	//
+	// 注意这里**不含 unknown**：unknown 表示「结果不确定，等人工/上游核对」，
+	// 而 resolveOneRecharge 正是把它对齐成 processing 或某个终态的唯一路径
+	// （admin_batch_recharge.go 的 switch 显式包含 itemStatusUnknown）。
+	// 把 unknown 也挡住会让这类明细永远卡住（review High-1）。
+	if p.Status != nil && !isTerminalRechargeItemStatus(*p.Status) {
+		where += ` AND lower(COALESCE(status,'')) NOT IN ('success','failed','skipped')`
+	}
+	_, err := DB.Exec(`UPDATE admin_recharge_items SET `+strings.Join(sets, ", ")+where, args...)
+	return err
+}
+
+// isTerminalRechargeItemStatus 已定论的明细状态（unknown 不算：它可被重新对齐）。
+func isTerminalRechargeItemStatus(status string) bool {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "success", "failed", "skipped":
+		return true
+	}
+	return false
+}
+
+// SetAdminRechargeBatchStatus 更新批次状态与备注。
+func SetAdminRechargeBatchStatus(batchID, status, message string) error {
+	if DB == nil {
+		return fmt.Errorf("db not initialized")
+	}
+	_, err := DB.Exec(`
+		UPDATE admin_recharge_batches SET status = ?, message = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE batch_id = ?
+	`, status, message, batchID)
+	return err
+}
+
+func Close() error {
+	if DB != nil {
+		return DB.Close()
+	}
+	return nil
+}

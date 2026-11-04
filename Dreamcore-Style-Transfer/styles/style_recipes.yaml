@@ -1,0 +1,570 @@
+# ============================================================
+# 风格配方库 — 10种"核"风格的完整结构化定义
+# 每个风格包含: 核心词、视觉特征、场景、情绪、时代参数、模型参数
+# ============================================================
+
+styles:
+  dreamcore:
+    id: "dreamcore"
+    name:
+      zh: "经典梦核"
+      en: "Dreamcore"
+    aliases: ["梦核", "dreamcore", "dream core", "梦核风", "梦核风格"]
+    description: "怀旧超现实主义梦境景观，模糊熟悉与陌生的边界"
+    # ---- 风格配方 ----
+    recipe:
+      core_keywords: "nostalgic surreal dreamscape"
+      visual_features:
+        - "soft overexposed lighting"
+        - "hazy atmosphere"
+        - "high grain"
+        - "vintage film quality"
+        - "bloom effect"
+      typical_scenes:
+        - "empty school hallway"
+        - "abandoned amusement park"
+        - "suburban street at dusk"
+        - "overgrown playground"
+      mood_atmosphere:
+        - "wistful"
+        - "familiar yet strange"
+        - "comforting yet eerie"
+      era_params:
+        - "90s film stock"
+        - "retro photography"
+        - "analog camera"
+    # ---- 颜色映射 ----
+    color_palette:
+      primary: ["warm yellow", "soft pink", "faded orange"]
+      secondary: ["muted teal", "dusty lavender"]
+      avoid: ["neon", "pure black", "pure white", "digital blue"]
+    # ---- 生成参数 ----
+    generation_params:
+      midjourney:
+        ar: "4:3"
+        stylize: 750
+        chaos: 20
+        negative: ["people", "modern", "busy", "realistic", "sharp focus"]
+      stable_diffusion:
+        steps: 30
+        cfg_scale: 7.5
+        negative_prompt: "modern architecture, smartphones, realistic, sharp, clean, people, busy, digital art, 3d render"
+    # ---- 强度控制 ----
+    intensity_presets:
+      mild:
+        description: "轻微梦核感"
+        weight_adjustment: 0.6
+      standard:
+        description: "标准梦核"
+        weight_adjustment: 1.0
+      extreme:
+        description: "强烈梦核"
+        weight_adjustment: 1.4
+
+  weirdcore:
+    id: "weirdcore"
+    name:
+      zh: "怪核"
+      en: "Weirdcore"
+    aliases: ["怪核", "weirdcore", "weird core", "怪诞核"]
+    description: "令人不安的混乱美学，低质量图像与扭曲现实的结合"
+    recipe:
+      core_keywords: "unsettling disoriented chaotic"
+      visual_features:
+        - "low quality image"
+        - "high contrast"
+        - "distorted faces"
+        - "disproportionate objects"
+        - "glitch artifacts"
+        - "chromatic aberration"
+      typical_scenes:
+        - "convenience store at night"
+        - "eerie empty corridor"
+        - "abandoned parking lot"
+        - "foggy street"
+      mood_atmosphere:
+        - "anxiety"
+        - "dread"
+        - "confusion"
+        - "uncanny"
+      era_params:
+        - "early internet graphics"
+        - "low-res digital camera"
+        - "VHS distortion"
+    color_palette:
+      primary: ["acid green", "blood red", "deep purple"]
+      secondary: ["sickly yellow", "washed-out cyan"]
+      avoid: ["warm natural tones", "soft pastels"]
+    generation_params:
+      midjourney:
+        ar: "1:1"
+        stylize: 600
+        chaos: 60
+        negative: ["realistic", "professional photography", "sharp", "beautiful", "normal"]
+      stable_diffusion:
+        steps: 25
+        cfg_scale: 8
+        negative_prompt: "professional photography, sharp focus, realistic proportions, normal faces, beautiful, aesthetic, symmetrical"
+    intensity_presets:
+      mild:
+        description: "轻微诡异感"
+        weight_adjustment: 0.6
+      standard:
+        description: "标准怪核"
+        weight_adjustment: 1.0
+      extreme:
+        description: "极致怪诞"
+        weight_adjustment: 1.4
+
+  liminal_space:
+    id: "liminal_space"
+    name:
+      zh: "阈限空间"
+      en: "Liminal Space"
+    aliases: ["阈限空间", "liminal space", "liminal", "阈限", "过渡空间"]
+    description: "空无一人的过渡空间，凝固的时间感与诡异的熟悉感"
+    recipe:
+      core_keywords: "transitional space in-between liminal"
+      visual_features:
+        - "empty and abandoned"
+        - "eerie stillness"
+        - "unnatural quiet"
+        - "slightly off lighting"
+        - "endless repetition"
+      typical_scenes:
+        - "empty parking lot at night"
+        - "abandoned shopping mall"
+        - "endless hotel hallway"
+        - "deserted airport terminal"
+        - "empty indoor pool"
+      mood_atmosphere:
+        - "solitude"
+        - "temporal stasis"
+        - "unsettling familiarity"
+        - "being watched"
+      era_params:
+        - "mundane architecture"
+        - "80s-90s commercial spaces"
+        - "fluorescent lighting"
+    color_palette:
+      primary: ["fluorescent white", "beige", "muted yellow"]
+      secondary: ["institutional green", "dusty blue"]
+      avoid: ["warm sunset colors", "vibrant colors", "natural daylight"]
+    generation_params:
+      midjourney:
+        ar: "16:9"
+        stylize: 500
+        chaos: 10
+        negative: ["people", "animals", "text", "signs", "modern", "daylight"]
+      stable_diffusion:
+        steps: 28
+        cfg_scale: 7
+        negative_prompt: "people, animals, text, signs, modern furniture, daylight, crowd, nature, outdoors"
+    intensity_presets:
+      mild:
+        description: "轻微空灵感"
+        weight_adjustment: 0.6
+      standard:
+        description: "标准阈限空间"
+        weight_adjustment: 1.0
+      extreme:
+        description: "极致空洞"
+        weight_adjustment: 1.4
+
+  traumacore:
+    id: "traumacore"
+    name:
+      zh: "伤核"
+      en: "Traumacore"
+    aliases: ["伤核", "traumacore", "trauma core", "创伤核"]
+    description: "可爱元素与破碎意象的并置，表达脆弱与防御机制"
+    recipe:
+      core_keywords: "trauma pain vulnerability"
+      visual_features:
+        - "cute elements juxtaposed with broken imagery"
+        - "torn photographs"
+        - "handwritten text overlay"
+        - "distressed textures"
+        - "scribbled words"
+      typical_scenes:
+        - "child's bedroom with broken toys"
+        - "torn family photo"
+        - "scribbled notebook pages"
+        - "empty playground at twilight"
+      mood_atmosphere:
+        - "melancholic"
+        - "fragile"
+        - "defensive"
+        - "wounded innocence"
+      era_params:
+        - "scrapbook aesthetic"
+        - "Polaroid photos"
+        - "hand-drawn elements"
+    color_palette:
+      primary: ["soft pink", "baby blue", "cream"]
+      secondary: ["muted grey", "faded lavender", "dusty rose"]
+      avoid: ["vibrant colors", "pure black", "harsh contrast"]
+    generation_params:
+      midjourney:
+        ar: "3:2"
+        stylize: 500
+        chaos: 30
+        negative: ["realistic", "happy", "professional", "clean", "polished"]
+      stable_diffusion:
+        steps: 30
+        cfg_scale: 7
+        negative_prompt: "happy, professional photography, clean, polished, realistic people, minimal, modern"
+    intensity_presets:
+      mild:
+        description: "轻微忧郁感"
+        weight_adjustment: 0.6
+      standard:
+        description: "标准伤核"
+        weight_adjustment: 1.0
+      extreme:
+        description: "极致创伤"
+        weight_adjustment: 1.4
+
+  backrooms:
+    id: "backrooms"
+    name:
+      zh: "后室"
+      en: "The Backrooms"
+    aliases: ["后室", "backrooms", "the backrooms", "幕后"]
+    description: "无尽的黄色房间，被困于现实之外的诡异空间"
+    recipe:
+      core_keywords: "infinite trapped eerie backrooms"
+      visual_features:
+        - "endless yellow rooms"
+        - "damp carpet texture"
+        - "fluorescent lighting"
+        - "mono-yellow walls"
+        - "no windows"
+      typical_scenes:
+        - "Level 0 yellow carpet room"
+        - "endless office cubicles"
+        - "abandoned hotel corridors"
+        - "fluorescent-lit empty spaces"
+      mood_atmosphere:
+        - "fear"
+        - "being watched"
+        - "hopeless exploration"
+        - "claustrophobic"
+      era_params:
+        - "found footage aesthetic"
+        - "low quality VHS"
+        - "1990s office building"
+    color_palette:
+      primary: ["yellow", "beige", "off-white"]
+      secondary: ["fluorescent white", "damp brown", "moldy green"]
+      avoid: ["natural light", "blue sky", "windows", "outdoor colors"]
+    generation_params:
+      midjourney:
+        ar: "4:3"
+        stylize: 400
+        chaos: 15
+        negative: ["windows", "daylight", "people", "modern", "outdoor", "nature"]
+      stable_diffusion:
+        steps: 30
+        cfg_scale: 7.5
+        negative_prompt: "windows, natural light, people, modern furniture, clean, organized, outdoor, nature, sky"
+    intensity_presets:
+      mild:
+        description: "轻微不安感"
+        weight_adjustment: 0.6
+      standard:
+        description: "标准后室"
+        weight_adjustment: 1.0
+      extreme:
+        description: "极致恐怖"
+        weight_adjustment: 1.4
+
+  kidcore:
+    id: "kidcore"
+    name:
+      zh: "童年核"
+      en: "Kidcore"
+    aliases: ["童年核", "kidcore", "kid core", "童核", "儿童核"]
+    description: "90年代童年的色彩爆炸，高饱和度的怀旧与甜蜜苦涩"
+    recipe:
+      core_keywords: "childhood innocence wonder nostalgia"
+      visual_features:
+        - "bright highly saturated colors"
+        - "90s toys scattered"
+        - "cartoon stickers"
+        - "plastic texture"
+        - "rainbow elements"
+      typical_scenes:
+        - "90s toy room"
+        - "colorful kindergarten"
+        - "retro arcade"
+        - "vintage playground"
+      mood_atmosphere:
+        - "nostalgic"
+        - "bittersweet"
+        - "playful"
+        - "innocent"
+      era_params:
+        - "1990s childhood"
+        - "VHS home video"
+        - "vibrant film"
+    color_palette:
+      primary: ["bright red", "electric blue", "sunny yellow", "hot pink"]
+      secondary: ["lime green", "orange", "purple"]
+      avoid: ["muted tones", "grey", "black", "dark colors", "minimalist"]
+    generation_params:
+      midjourney:
+        ar: "1:1"
+        stylize: 700
+        chaos: 40
+        negative: ["dark", "moody", "realistic", "adult", "sophisticated", "minimalist"]
+      stable_diffusion:
+        steps: 30
+        cfg_scale: 8
+        negative_prompt: "dark, moody, realistic, adult, sophisticated, monochrome, muted colors, minimalist"
+    intensity_presets:
+      mild:
+        description: "轻微童趣"
+        weight_adjustment: 0.6
+      standard:
+        description: "标准童年核"
+        weight_adjustment: 1.0
+      extreme:
+        description: "极致色彩爆炸"
+        weight_adjustment: 1.4
+
+  poolcore:
+    id: "poolcore"
+    name:
+      zh: "池核"
+      en: "Poolcore"
+    aliases: ["池核", "poolcore", "pool core", "泳池核", "水核"]
+    description: "空无一人的游泳池，蓝白瓷砖与静止水面的阈限美学"
+    recipe:
+      core_keywords: "aquatic liminal pool water"
+      visual_features:
+        - "empty swimming pool"
+        - "blue and white tiles"
+        - "clear still water"
+        - "underwater light refraction"
+        - "echo-y emptiness"
+      typical_scenes:
+        - "empty indoor swimming pool"
+        - "abandoned outdoor pool"
+        - "empty water park"
+        - "tiled pool corridors"
+      mood_atmosphere:
+        - "serene yet eerie"
+        - "peaceful isolation"
+        - "underwater calm"
+      era_params:
+        - "1990s pool tiles"
+        - "retro aquatic center"
+        - "analog underwater photo"
+    color_palette:
+      primary: ["pool blue", "white", "aquamarine"]
+      secondary: ["light teal", "pale turquoise", "water-refracted cyan"]
+      avoid: ["warm colors", "red", "orange", "crowded scenes"]
+    generation_params:
+      midjourney:
+        ar: "16:9"
+        stylize: 600
+        chaos: 20
+        negative: ["people", "modern", "ocean", "beach", "crowded", "splashing"]
+      stable_diffusion:
+        steps: 30
+        cfg_scale: 7.5
+        negative_prompt: "people, swimmers, ocean, beach, modern architecture, crowds, splashing, waves, sand"
+    intensity_presets:
+      mild:
+        description: "轻微水感"
+        weight_adjustment: 0.6
+      standard:
+        description: "标准池核"
+        weight_adjustment: 1.0
+      extreme:
+        description: "极致水下"
+        weight_adjustment: 1.4
+
+  webcore:
+    id: "webcore"
+    name:
+      zh: "网核"
+      en: "Webcore / Internetcore"
+    aliases: ["网核", "webcore", "internetcore", "网络核", "赛博核"]
+    description: "早期互联网的像素化怀旧，Geocities时代的数码乡愁"
+    recipe:
+      core_keywords: "early internet nostalgia digital retro"
+      visual_features:
+        - "blinking GIFs aesthetic"
+        - "pixelated graphics"
+        - "outdated user interface"
+        - "scan lines"
+        - "8-bit elements"
+      typical_scenes:
+        - "personal GeoCities homepage"
+        - "old forum page"
+        - "Windows XP desktop"
+        - "pixel art landscape"
+      mood_atmosphere:
+        - "nostalgic"
+        - "digital loneliness"
+        - "early web wonder"
+      era_params:
+        - "1990s-2000s internet"
+        - "Windows 95/XP era"
+        - "dial-up aesthetic"
+    color_palette:
+      primary: ["web safe blue", "#00FF00 green", "hot pink"]
+      secondary: ["grey", "cyan", "#FF6600"]
+      avoid: ["4K", "modern UI", "flat design", "gradients", "realistic"]
+    generation_params:
+      midjourney:
+        ar: "4:3"
+        stylize: 500
+        chaos: 50
+        negative: ["modern", "smartphone", "realistic photo", "4K", "minimalist"]
+      stable_diffusion:
+        steps: 25
+        cfg_scale: 7
+        negative_prompt: "modern UI, smartphone, realistic photo, 4k, high quality, modern design, flat design"
+    intensity_presets:
+      mild:
+        description: "轻微像素感"
+        weight_adjustment: 0.6
+      standard:
+        description: "标准网核"
+        weight_adjustment: 1.0
+      extreme:
+        description: "极致8-bit"
+        weight_adjustment: 1.4
+
+  hypnocore:
+    id: "hypnocore"
+    name:
+      zh: "催眠核"
+      en: "Hypnocore"
+    aliases: ["催眠核", "hypnocore", "hypno core", "迷幻核", "催眠"]
+    description: "催眠漩涡与视觉错觉，迷幻色彩的自我迷失体验"
+    recipe:
+      core_keywords: "hypnotic trance psychedelic disorienting"
+      visual_features:
+        - "hypnotic spirals"
+        - "optical illusions"
+        - "kaleidoscopic patterns"
+        - "recursive imagery"
+        - "moire patterns"
+      typical_scenes:
+        - "rotating tunnel"
+        - "infinite mirror loop"
+        - "psychedelic vortex"
+        - "fractal landscape"
+      mood_atmosphere:
+        - "psychedelic"
+        - "disorienting"
+        - "loss of self"
+        - "trance state"
+      era_params:
+        - "surreal"
+        - "60s psychedelic poster"
+        - "op art movement"
+    color_palette:
+      primary: ["psychedelic purple", "electric yellow", "magenta"]
+      secondary: ["cyan", "lime green", "orange"]
+      avoid: ["realistic", "natural", "calm colors", "earth tones"]
+    generation_params:
+      midjourney:
+        ar: "1:1"
+        stylize: 900
+        chaos: 80
+        negative: ["realistic", "normal", "static", "calm", "straight lines", "minimalist"]
+      stable_diffusion:
+        steps: 35
+        cfg_scale: 9
+        negative_prompt: "realistic, normal proportions, static, calm, peaceful, straight lines, minimalist, simple"
+    intensity_presets:
+      mild:
+        description: "轻微迷幻"
+        weight_adjustment: 0.6
+      standard:
+        description: "标准催眠核"
+        weight_adjustment: 1.0
+      extreme:
+        description: "极致眩晕"
+        weight_adjustment: 1.4
+
+  chinese_dreamcore:
+    id: "chinese_dreamcore"
+    name:
+      zh: "中式梦核"
+      en: "Chinese Dreamcore"
+    aliases: ["中式梦核", "chinese dreamcore", "中国梦核", "中式怪核", "电子乡愁"]
+    description: "中国90-00年代的集体记忆，CCD画质下的电子乡愁"
+    recipe:
+      core_keywords: "Chinese nostalgia electronic homesickness"
+      visual_features:
+        - "scenes from 1990s-2000s China"
+        - "vintage CCD camera quality"
+        - "faded warm tones"
+        - "slightly blurry"
+        - "compression artifacts"
+      typical_scenes:
+        - "1990s Chinese tower block"
+        - "white-tiled market"
+        - "urban-rural fringe"
+        - "old Chinese classroom"
+        - "traditional alleyway (hutong)"
+      mood_atmosphere:
+        - "nostalgic"
+        - "homesick"
+        - "electronic melancholy"
+        - "collective memory"
+      era_params:
+        - "2000s China"
+        - "vintage CCD digital camera"
+        - "early Chinese internet"
+        - "old CCTV footage"
+    color_palette:
+      primary: ["warm yellow", "faded red", "cream white"]
+      secondary: ["mint green tile", "dusty blue", "grey concrete"]
+      avoid: ["modern skyscrapers", "neon lights", "western architecture", "luxury"]
+    generation_params:
+      midjourney:
+        ar: "4:3"
+        stylize: 650
+        chaos: 25
+        negative: ["modern skyscrapers", "smartphones", "luxury", "western", "high-tech"]
+      stable_diffusion:
+        steps: 30
+        cfg_scale: 7.5
+        negative_prompt: "modern skyscrapers, smartphones, luxury brands, western architecture, high-tech, futuristic, 2020s"
+    intensity_presets:
+      mild:
+        description: "轻微怀旧感"
+        weight_adjustment: 0.6
+      standard:
+        description: "标准中式梦核"
+        weight_adjustment: 1.0
+      extreme:
+        description: "极致乡愁"
+        weight_adjustment: 1.4
+
+# ============================================================
+# 风格交叉推荐矩阵 (用于"不确定选哪个"的场景)
+# ============================================================
+recommendations:
+  mood_mapping:
+    "温暖怀念": ["dreamcore", "kidcore", "chinese_dreamcore"]
+    "诡异不安": ["weirdcore", "liminal_space", "backrooms"]
+    "孤独冷静": ["liminal_space", "poolcore", "webcore"]
+    "忧郁脆弱": ["traumacore", "chinese_dreamcore"]
+    "迷幻眩晕": ["hypnocore", "weirdcore"]
+    "童年回忆": ["kidcore", "dreamcore", "webcore"]
+
+  scene_mapping:
+    "室内": ["backrooms", "liminal_space", "traumacore"]
+    "室外": ["dreamcore", "chinese_dreamcore", "kidcore"]
+    "城市": ["chinese_dreamcore", "weirdcore", "liminal_space"]
+    "自然": ["dreamcore", "poolcore", "kidcore"]
+    "人物为主": ["weirdcore", "traumacore", "dreamcore"]
+    "建筑为主": ["liminal_space", "backrooms", "chinese_dreamcore"]

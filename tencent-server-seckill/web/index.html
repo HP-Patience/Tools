@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="console-token" content="__CONSOLE_TOKEN__">
+  <meta name="color-scheme" content="dark">
+  <title>腾讯云抢购 · 本地控制台</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="#overview" aria-label="返回总览"><span>抢购助手</span></a>
+    <nav aria-label="主导航">
+      <a class="nav-item active" href="#overview">控制总览</a>
+      <a class="nav-item" href="#settings">抢购设置</a>
+      <a class="nav-item" href="#activity">运行日志</a>
+    </nav>
+  </aside>
+  <div class="workspace">
+    <header class="topbar"><div class="breadcrumb"><strong>控制总览</strong></div><div class="topbar-right"><span id="connection" class="connection" role="status" aria-label="本地服务连接中" title="本地服务连接中"><i></i></span><span class="topbar-divider"></span><time id="clock">--:--:--</time><button id="relogin-btn" class="button secondary account-button" type="button">更换账号</button></div></header>
+    <main id="overview">
+      <div id="demo-banner" class="demo-banner" hidden>模拟环境 · 所有操作为本地模拟，不访问腾讯云，不会创建订单。</div>
+      <section class="metrics" aria-label="运行状态">
+        <article class="metric"><div class="metric-title">登录状态</div><div class="metric-value"><i id="login-dot" class="status-dot"></i><strong id="login-status">正在读取</strong></div></article>
+        <article class="metric"><div class="metric-title">任务状态</div><div class="metric-value"><i id="task-dot" class="status-dot"></i><strong id="task-status">空闲</strong><span id="task-kind" class="small-pill" hidden></span></div><p id="task-detail" hidden></p></article>
+        <article class="metric"><div class="metric-title">服务器地域</div><div class="metric-value"><strong id="region-label">北京</strong></div></article>
+      </section>
+      <div class="dashboard-grid">
+        <section class="card setup-card" id="settings">
+          <div class="card-heading"><div><h2>抢购设置</h2></div></div>
+          <div class="product"><div><strong>轻量应用服务器</strong><p>4 核 CPU <b>·</b> 4 GB 内存 <b>·</b> 3 Mbps</p></div><div class="price"><strong>38<span>元 / 年</span></strong></div></div>
+          <fieldset><legend>部署地域</legend><div class="region-options"><button type="button" class="region-option" data-region="4" aria-pressed="false"><span>上海</span><i></i></button><button type="button" class="region-option selected" data-region="8" aria-pressed="true"><span>北京</span><i></i></button><button type="button" class="region-option" data-region="1" aria-pressed="false"><span>广州</span><i></i></button></div></fieldset>
+          <fieldset class="session-field"><legend>抢购场次</legend><div class="session-options" title="已结束的指定场次自动顺延至次日"><button type="button" data-session="auto" class="selected" aria-pressed="true">最近一场</button><button type="button" data-session="10:00" aria-pressed="false">10:00</button><button type="button" data-session="15:00" aria-pressed="false">15:00</button></div></fieldset>
+
+        </section>
+        <section class="card launch-card">
+          <div class="card-heading"><div><h2>下一次行动</h2></div></div>
+          <div class="countdown-label"><span id="countdown-label">距离所选场次</span><span>北京时间</span></div>
+          <div class="countdown" aria-label="场次倒计时"><span id="hours">--</span><b>:</b><span id="minutes">--</span><b>:</b><span id="seconds">--</span></div>
+          <div class="countdown-units"><span>小时</span><span>分钟</span><span>秒</span></div>
+          <div class="launch-meta"><div><span class="meta-label">目标场次</span><strong id="target-label">正在计算…</strong></div></div>
+          <button id="grab-btn" class="button primary" type="button">开始抢购</button>
+          <button id="stop-btn" class="button stop" type="button" hidden>停止当前任务</button>
+        </section>
+      </div>
+      <section class="card log-card" id="activity">
+        <div class="log-heading"><div class="log-title"><h2>运行日志</h2></div><div class="log-controls"><a id="console-link" class="button secondary console-link" href="https://console.cloud.tencent.com/" target="_blank" rel="noopener noreferrer">腾讯云控制台 ↗</a><button id="follow-btn" type="button" aria-pressed="true">自动跟随</button><span></span><button id="clear-btn" type="button">清空显示</button></div></div>
+        <div class="terminal" id="logs" role="log" aria-live="polite" aria-relevant="additions" tabindex="0"><div id="log-empty" class="log-empty">等待任务输出</div></div>
+      </section>
+    </main>
+  </div>
+  <dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-description"><form method="dialog"><h2 id="confirm-title">确认开始抢购？</h2><p id="confirm-description">此操作可能创建真实订单。</p><dl class="confirm-details"><div><dt>商品</dt><dd id="confirm-product"></dd></div><div><dt>地域</dt><dd id="confirm-region"></dd></div><div><dt>场次</dt><dd id="confirm-session"></dd></div></dl><p class="dialog-note">停止任务不会撤销已创建的订单。请在腾讯云控制台核实并及时付款或取消。</p><label class="confirm-check"><input id="risk-check" type="checkbox">我已了解真实下单及账号限流风险</label><div class="dialog-actions"><button id="cancel-confirm" class="button secondary" value="cancel" autofocus>取消</button><button id="execute-confirm" class="button primary" value="confirm" disabled>确认执行</button></div></form></dialog>
+  <dialog id="login-dialog" aria-labelledby="login-title" aria-describedby="login-description"><form method="dialog"><h2 id="login-title">需要登录</h2><p id="login-description">登录完成后，再点击开始抢购。不会自动下单。</p><div class="dialog-actions"><button id="cancel-login" class="button secondary" value="cancel" autofocus>取消</button><button id="execute-login" class="button primary" value="login">去登录</button></div></form></dialog>
+  <dialog id="qr-dialog" aria-labelledby="qr-title" aria-describedby="qr-status qr-lock-note"><h2 id="qr-title">微信扫码登录</h2><div class="qr-image-box"><img id="qr-image" alt="微信登录二维码" hidden><p id="qr-loading">正在获取二维码…</p></div><div id="qr-verifying" hidden><span class="qr-verification-spinner" aria-hidden="true"></span></div><p id="qr-lock-note" class="qr-lock-note">扫码后登录会自动校验，请等待二维码消失再操作</p><p id="qr-status" role="status">正在准备登录</p><div class="dialog-actions"><button id="refresh-qr" class="button secondary" type="button" disabled>刷新二维码</button><button id="cancel-qr" class="button secondary" type="button">取消登录</button></div></dialog>
+  <div id="toast" role="status" hidden></div>
+</body>
+</html>

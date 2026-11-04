@@ -1,0 +1,452 @@
+package server
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"os"
+	"path"
+	"path/filepath"
+	"strings"
+
+	"github.com/danew/cdk-recharge-system/internal/agentwebhook"
+	"github.com/danew/cdk-recharge-system/internal/config"
+	"github.com/danew/cdk-recharge-system/internal/db"
+	"github.com/danew/cdk-recharge-system/internal/handler"
+	"github.com/danew/cdk-recharge-system/internal/notify"
+	"github.com/danew/cdk-recharge-system/internal/plansync"
+	"github.com/danew/cdk-recharge-system/internal/tgmember"
+	"github.com/danew/cdk-recharge-system/internal/xmember"
+	"github.com/gin-gonic/gin"
+)
+
+type Server struct {
+	engine *gin.Engine
+	cfg    *config.Config
+}
+
+func New(ctx context.Context, cfg *config.Config) (*Server, error) {
+	// 生产模式下强制要求安全的 JWT secret，避免 token 被伪造
+	if err := enforceJWTSecret(cfg.Server.Mode); err != nil {
+		return nil, err
+	}
+
+	// Initialize database
+	if err := db.Init(&cfg.Database); err != nil {
+		return nil, err
+	}
+	notify.Start(ctx)
+
+	// 不用 gin.Default()：默认日志会记完整 query，而 ?code= / ?token= / ?setup_token= 都是敏感值。
+	engine := gin.New()
+	engine.Use(gin.LoggerWithConfig(gin.LoggerConfig{Formatter: pathOnlyLogFormatter}), gin.Recovery())
+
+	// 不信任任意代理头（X-Forwarded-For 等），保证限流拿到的是真实来源 IP。
+	// 若部署在已知反代后，用 TRUSTED_PROXIES（逗号分隔）显式声明。
+	var trusted []string
+	if tp := strings.TrimSpace(os.Getenv("TRUSTED_PROXIES")); tp != "" {
+		trusted = splitAndTrim(tp)
+	}
+	if err := engine.SetTrustedProxies(trusted); err != nil {
+		return nil, fmt.Errorf("TRUSTED_PROXIES 配置无效: %w", err)
+	}
+	// 优先 X-Real-IP：Caddy 每次都用 {client_ip} 覆盖它（橙云下已解析 CF-Connecting-IP）。
+	// X-Forwarded-For 末尾会被追加 Cloudflare 边缘 IP，从右往左取会拿到边缘节点而不是访客。
+	engine.RemoteIPHeaders = []string{"X-Real-IP", "X-Forwarded-For"}
+
+	// Setup middleware
+	engine.Use(MaxBodyMiddleware())
+	engine.Use(SecurityHeadersMiddleware())
+	engine.Use(CORSMiddleware())
+
+	// Setup routes
+	setupRoutes(engine)
+
+	// 启动卡台产品状态后台同步（每3分钟）
+	plansync.Start(ctx)
+	xmember.Start(ctx)
+	tgmember.Start(ctx)
+
+	// 重启后把仍在途的批量充值明细与上游状态对齐一次
+	handler.ResumeInFlightBatchRecharges(ctx)
+
+	// 重启后补发「已付款但没发出去」的代理订单（发货中途被杀、租约已过期）
+	handler.ResumeStuckAgentOrders(ctx)
+
+	// 代理回调投递 worker：消费 agent_webhook_deliveries outbox
+	agentwebhook.Start(ctx)
+
+	return &Server{
+		engine: engine,
+		cfg:    cfg,
+	}, nil
+}
+
+// enforceJWTSecret 在 release 模式下拒绝使用空/默认密钥启动。
+func enforceJWTSecret(mode string) error {
+	secret := os.Getenv("JWT_SECRET")
+	weak := secret == "" || len(secret) < 16 || isPlaceholderSecret(secret)
+	if mode == "release" && weak {
+		return fmt.Errorf("不安全的 JWT_SECRET：release 模式必须设置至少 16 位的随机 JWT_SECRET 环境变量（不能沿用示例值）")
+	}
+	if weak {
+		log.Printf("⚠️  当前 JWT_SECRET 不安全（默认/过短）。仅可用于本地开发，部署前请设置强随机 JWT_SECRET（release 模式将拒绝启动）。")
+	}
+	return nil
+}
+
+// isPlaceholderSecret 仓库里出现过的示例/占位密钥：照抄即等于公开，任何人都能伪造管理员 token。
+func isPlaceholderSecret(secret string) bool {
+	s := strings.ToLower(secret)
+	for _, marker := range []string{"change-me", "changeme", "your-secret", "dev-secret", "example", "placeholder"} {
+		if strings.Contains(s, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+func splitAndTrim(s string) []string {
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if v := strings.TrimSpace(p); v != "" {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// 卡台回调只挂在 /webhooks/cardplatform 下，不能和 /webhooks/epay 抢同一层通配，
+// 否则 gin 启动会直接 panic（32068d5）。
+func registerWebhookRoutes(api *gin.RouterGroup) {
+	api.Any("/webhooks/epay", handler.EpayNotify)
+	api.POST("/webhooks/cardplatform", handler.CardPlatformWebhook)
+	api.POST("/webhooks/cardplatform/:accountId", handler.CardPlatformWebhook)
+	api.POST("/webhooks/avanfinity", handler.CardPlatformWebhook)
+}
+
+func setupRoutes(r *gin.Engine) {
+	webDir := strings.TrimSpace(os.Getenv("WEB_DIR"))
+
+	// Root route for quick manual checks in browser (仅当未托管前端时)
+	if webDir == "" {
+		r.GET("/", func(c *gin.Context) {
+			c.JSON(200, gin.H{
+				"status":   "ok",
+				"message":  "Recharge System backend is running",
+				"health":   "/health",
+				"api_base": "/api/v1",
+			})
+		})
+	}
+
+	// Health check
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"status":  "ok",
+			"message": "Recharge System is running",
+		})
+	})
+
+	// API v1 routes
+	api := r.Group("/api/v1")
+	{
+		api.GET("", func(c *gin.Context) {
+			c.JSON(200, gin.H{
+				"status":  "ok",
+				"message": "API v1 is available",
+			})
+		})
+
+		auth := api.Group("/auth")
+		{
+			auth.POST("/admin/login", handler.AdminLogin)
+			auth.POST("/admin/logout", handler.AdminLogout)
+			auth.GET("/admin/me", JWTAuthMiddleware(), handler.AdminMe)
+			auth.POST("/admin/change-password", JWTAuthMiddleware(), AdminAuthMiddleware(), handler.AdminChangePassword)
+
+			auth.POST("/agent/login", handler.AgentLogin)
+			auth.POST("/agent/logout", AgentAuthMiddleware(), handler.AgentLogout)
+			auth.GET("/agent/me", AgentAuthMiddleware(), handler.AgentMe)
+			auth.POST("/agent/change-password", AgentAuthMiddleware(), handler.AgentChangePassword)
+		}
+
+		// 首次安装向导（仅 pending；完成后 410）
+		setup := api.Group("/setup")
+		{
+			setup.GET("/status", handler.SetupStatus)
+			setup.POST("/bootstrap", handler.SetupBootstrap)
+		}
+
+		// 公开站点配置（品牌/皮肤，无密钥）
+		api.GET("/public/site", handler.PublicSiteConfig)
+
+		// 卡台 CDK 公开兑换 BFF + 实时服务费展示
+		pubCDK := api.Group("/public/cdk")
+		{
+			pubCDK.GET("/plans", handler.PublicCDKPlans)
+			pubCDK.POST("/preview", handler.RateLimitPublicCDKPreview(), handler.PublicCDKPreview)
+			pubCDK.POST("/preflight", handler.PublicCDKPreflight)
+			pubCDK.POST("/recover-subscription", handler.PublicCDKGraceRecovery)
+			pubCDK.POST("/redeem", handler.PublicCDKRedeem)
+			pubCDK.GET("/result", handler.PublicCDKResult)
+			// 刷新进度 / 任务查询：凭卡密反查本站绑定的 redemption_token
+			pubCDK.GET("/result-by-code", handler.RateLimitResultByCode(), handler.PublicCDKResultByCode)
+			// 代理隐藏换码：密码 + 失败未扣款 CDK → 新码
+			pubCDK.POST("/exchange", handler.PublicAgentCDKExchange)
+		}
+
+		pubX := api.Group("/public/x")
+		{
+			pubX.POST("/preview", handler.PublicXPreview)
+			pubX.POST("/quote", handler.PublicXQuote)
+			pubX.POST("/confirm", handler.PublicXConfirm)
+			pubX.GET("/result", handler.PublicXResult)
+		}
+		pubTG := api.Group("/public/tg")
+		{
+			pubTG.POST("/preview", handler.PublicTGPreview)
+			pubTG.POST("/quote", handler.PublicTGQuote)
+			pubTG.POST("/confirm", handler.PublicTGConfirm)
+			pubTG.GET("/result", handler.PublicTGResult)
+		}
+
+		// 卡密状态查询：是否已用 + 充值邮箱（不返回 token）
+		// 限流：单查按次数；批量在 handler 内按张数计。管理员登录态不受限、可见完整邮箱。
+		lookup := api.Group("/lookup")
+		{
+			lookup.GET("/cdk", handler.RateLimitLookupSingle(), handler.LookupCDKStatus)
+			lookup.POST("/cdk/batch", handler.LookupCDKStatusBatch)
+			// 兼容旧路径
+			lookup.GET("/task", handler.RateLimitLookupSingle(), handler.LookupCDKStatus)
+		}
+
+		registerWebhookRoutes(api)
+
+		// 账单：粘贴 session 查 ChatGPT 订阅 + hosted_invoice（小助手同款）
+		billingRL := handler.RateLimitBilling()
+		api.POST("/public/billing/check", billingRL, handler.SessionBillingCheck)
+		api.POST("/billing/check", billingRL, handler.SessionBillingCheck)
+		// Session 工具：用 sessionToken 换新 accessToken（不落库）
+		api.POST("/public/session/refresh", billingRL, handler.PublicSessionRefresh)
+
+		// 代理门户 / API（账号由站长创建）
+		agent := api.Group("/agent")
+		agent.Use(AgentAuthMiddleware(), handler.AgentRateLimit())
+		{
+			agent.GET("/plans", handler.AgentListPlans)
+			agent.POST("/orders", handler.AgentCreateOrder)
+			agent.GET("/orders", handler.AgentListOrders)
+			agent.GET("/orders/:order_no", handler.AgentGetOrder)
+			agent.POST("/orders/:order_no/repay", handler.AgentRepayOrder)
+			agent.POST("/recharge", handler.AgentCreateRecharge)
+			agent.GET("/recharge/:request_id", handler.AgentGetRecharge)
+			agent.GET("/records", handler.AgentListRecords)
+			agent.POST("/records/search-session", handler.AgentSearchRecordsBySession)
+			agent.POST("/session/check", handler.AgentCheckSession)
+			agent.GET("/settings", handler.AgentGetSettings)
+			agent.PUT("/settings", handler.AgentPutSettings)
+			agent.POST("/settings/webhook-secret/rotate", handler.AgentRotateWebhookSecret)
+			agent.GET("/api-keys", handler.AgentListAPIKeys)
+			agent.POST("/api-keys", handler.AgentCreateAPIKey)
+			agent.DELETE("/api-keys/:id", handler.AgentRevokeAPIKey)
+
+			agent.POST("/batch-recharge", handler.AgentBatchCreate)
+			agent.POST("/cdk/validate", handler.AgentValidateCDKs)
+			agent.GET("/cdks", handler.AgentListCDKs)
+			agent.GET("/batch-recharge", handler.AgentBatchList)
+			agent.GET("/batch-recharge/:batch_id", handler.AgentBatchDetail)
+			agent.GET("/batch-recharge/:batch_id/export", handler.AgentBatchExport)
+
+			agent.GET("/webhooks/deliveries", handler.AgentListWebhookDeliveries)
+			agent.POST("/webhooks/deliveries/:id/retry", handler.AgentRetryWebhookDelivery)
+
+			agent.GET("/openapi.json", handler.AgentOpenAPIJSON)
+			agent.GET("/openapi.yaml", handler.AgentOpenAPIYAML)
+			agent.GET("/openapi.md", handler.AgentOpenAPIMarkdown)
+		}
+
+		// Stats routes
+		stats := api.Group("/stats")
+		stats.Use(JWTAuthMiddleware(), AdminAuthMiddleware())
+		{
+			stats.GET("/system", handler.GetSystemStats)
+		}
+
+		// Admin routes
+		admin := api.Group("/admin")
+		admin.Use(JWTAuthMiddleware())
+		admin.Use(AdminAuthMiddleware())
+		{
+			// 版本：本机 VERSION + GitHub 最新 release/tag
+			admin.GET("/system/version", handler.AdminSystemVersion)
+			admin.GET("/system/update/status", handler.AdminSystemUpdateStatus)
+			admin.POST("/system/update", handler.AdminSystemUpdate)
+
+			// 卡台 Open API：实时价格 / 余额 / 发码 / 列码 / CDK 订单
+			admin.GET("/cardplatform/ping", handler.CardPlatformPing)
+			admin.GET("/cardplatform/plans", handler.CardPlatformPlans)
+			admin.GET("/cardplatform/balance", handler.CardPlatformBalance)
+			admin.GET("/cardplatform/cdks", handler.CardPlatformListCDKs)
+			admin.GET("/cardplatform/cdks/stored", handler.CardPlatformListStoredCDKs)
+			admin.POST("/cardplatform/cdks", handler.CardPlatformIssueCDKs)
+			admin.POST("/cardplatform/cdks/store", handler.CardPlatformStoreCDKCodes)
+			admin.POST("/cardplatform/cdks/sync", handler.CardPlatformSyncUpstreamCDKs)
+			admin.POST("/cardplatform/cdks/batch-disable", handler.CardPlatformBatchDisableCDKs)
+			admin.POST("/cardplatform/cdks/batch-enable", handler.CardPlatformBatchEnableCDKs)
+			admin.POST("/cardplatform/cdks/batch-note", handler.CardPlatformBatchSetCDKNote)
+			admin.POST("/cardplatform/cdks/batch-clear-note", handler.CardPlatformBatchClearCDKNote)
+			admin.PUT("/cardplatform/cdks/:id/note", handler.CardPlatformSetCDKNote)
+			admin.POST("/cardplatform/cdks/:id/disable", handler.CardPlatformDisableCDK)
+			admin.POST("/cardplatform/cdks/:id/enable", handler.CardPlatformEnableCDK)
+			admin.GET("/cardplatform/cdk-orders", handler.CardPlatformListCDKOrders)
+			admin.GET("/cardplatform/cdk-orders/:id", handler.CardPlatformGetCDKOrder)
+			admin.DELETE("/cardplatform/cards/:id", handler.CardPlatformDeleteCard)
+
+			// 管理员批量充值（管理端无卡密；后端自动发码即兑换）。
+			// 路径必须挂在 cardplatform 前缀下：前端 lib/api.ts 只对该前缀
+			// 豁免「401/403 即登出」，否则上游鉴权错误会把管理员踢回登录页。
+			admin.POST("/cardplatform/batch-recharge", handler.AdminBatchRechargeCreate)
+			admin.GET("/cardplatform/batch-recharge", handler.AdminBatchRechargeList)
+			admin.GET("/cardplatform/batch-recharge/:batch_id/export", handler.AdminBatchRechargeExport)
+			admin.GET("/cardplatform/batch-recharge/:batch_id", handler.AdminBatchRechargeDetail)
+			admin.POST("/cardplatform/batch-recharge/:batch_id/retry", handler.AdminBatchRechargeRetry)
+
+			// Webhook 事件列表 + 配置提示
+			admin.GET("/webhooks/events", handler.AdminListWebhooks)
+
+			// 本机出口 IP（卡台 API 白名单）
+			admin.GET("/network/egress", handler.NetworkEgress)
+
+			// Audit logs
+			admin.GET("/audit-logs", handler.ListAuditLogs)
+
+			// 站点设置（品牌/皮肤/卡台密钥保险箱）
+			admin.GET("/settings", handler.AdminGetSettings)
+			admin.PUT("/settings", handler.AdminPutSettings)
+			admin.POST("/settings/telegram-test", handler.AdminTelegramTest)
+			admin.POST("/epay/test", handler.AdminEpayTest)
+
+			// 自动选卡权重配置
+			admin.GET("/card-selection/rules", handler.AdminGetCardSelectionRules)
+			admin.PUT("/card-selection/rules", handler.AdminPutCardSelectionRules)
+			admin.GET("/card-selection/plan-status", handler.AdminGetPlanStatus)
+			admin.POST("/card-selection/sync", handler.AdminSyncPlanStatus)
+			admin.GET("/card-selection/site-policy", handler.AdminGetSiteRedeemPolicy)
+			admin.PUT("/card-selection/site-policy", handler.AdminPutSiteRedeemPolicy)
+
+			// 多卡台账户与本站统一发码（双绑）
+			// id 放 body 而不是路径：同级再挂 bindings / dual-bind 这类静态段时，
+			// 和 :id 混在一起会让路由变歧义。
+			admin.GET("/card-platforms", handler.AdminListCardPlatforms)
+			admin.POST("/card-platforms/upsert", handler.AdminUpsertCardPlatform)
+			admin.POST("/card-platforms/webhook-secret", handler.AdminSetCardPlatformWebhookSecret)
+			admin.POST("/card-platforms/webhook-url", handler.AdminSetCardPlatformWebhookURL)
+			admin.POST("/card-platforms/status", handler.AdminSetCardPlatformStatus)
+			admin.POST("/card-platforms/delete", handler.AdminDeleteCardPlatform)
+			admin.POST("/card-platforms/reset-circuit", handler.AdminResetCardPlatformCircuit)
+			admin.POST("/card-platforms/ping", handler.AdminPingCardPlatform)
+			admin.POST("/card-platforms/probe-x", handler.AdminProbeXAccount)
+			admin.GET("/card-platforms/x-cards", handler.AdminXAccountCards)
+			admin.GET("/card-platforms/x-calls", handler.AdminXCalls)
+			admin.POST("/card-platforms/reorder", handler.AdminReorderCardPlatforms)
+			admin.GET("/x/config", handler.AdminGetXConfig)
+			admin.POST("/x/connect-avan", handler.AdminXConnectAvan)
+			admin.GET("/x/overview", handler.AdminXOverview)
+			admin.POST("/x/issue", handler.AdminXIssue)
+			admin.GET("/x/batches", handler.AdminXBatches)
+			admin.GET("/x/batches/:id/export", handler.AdminXBatchExport)
+			admin.POST("/x/batches/:id/retry", handler.AdminXRetryBatch)
+			admin.POST("/x/test-quote", handler.AdminXTestQuote)
+			admin.GET("/x/records", handler.AdminXRecords)
+			admin.POST("/x/records/:id/requery", handler.AdminXRequery)
+			admin.POST("/x/records/:id/resolve", handler.AdminXResolve)
+			admin.POST("/x/codes/:id/disable", handler.AdminXDisableCode)
+			admin.PUT("/x/channels", handler.AdminSaveXChannel)
+			admin.GET("/x/supply", handler.AdminGetXSupply)
+			admin.PUT("/x/supply", handler.AdminSaveXSupply)
+			admin.POST("/x/supply/issue", handler.AdminXSupplyIssue)
+			admin.PUT("/x/plan-limits", handler.AdminSaveXLimits)
+			admin.GET("/tg/overview", handler.AdminTGOverview)
+			admin.POST("/tg/issue", handler.AdminTGIssue)
+			admin.GET("/tg/batches", handler.AdminTGBatches)
+			admin.POST("/tg/batches/:id/retry", handler.AdminTGRetryBatch)
+			admin.GET("/tg/records", handler.AdminTGRecords)
+			admin.POST("/tg/records/:id/requery", handler.AdminTGRequery)
+			admin.POST("/tg/records/:id/resolve", handler.AdminTGResolve)
+			admin.POST("/tg/codes/:id/disable", handler.AdminTGDisable)
+			admin.GET("/tg/plan-limits", handler.AdminTGLimits)
+			admin.PUT("/tg/plan-limits", handler.AdminSaveTGLimits)
+			admin.PUT("/card-platforms/dual-bind", handler.AdminPutDualBindConfig)
+			admin.GET("/card-platforms/bindings", handler.AdminGetSiteCDKBindings)
+			// 人工解除卡在 unknown/retiring 的绑定（否则整张码无法预览）
+			admin.POST("/card-platforms/bindings/release", handler.AdminReleaseSiteCDKBinding)
+
+			// 卡健康：同卡失败 × 邮箱归因 → 坏卡冻结
+			admin.GET("/card-health", handler.AdminListCardHealth)
+			admin.GET("/card-health/policy", handler.AdminGetCardHealthPolicy)
+			admin.PUT("/card-health/policy", handler.AdminPutCardHealthPolicy)
+			admin.POST("/card-health/unblock", handler.AdminUnblockCard)
+			admin.POST("/card-health/observe", handler.AdminReobserveCardOrder)
+
+			// 代理账号管理
+			admin.GET("/agents", handler.AdminListAgents)
+			admin.POST("/agents", handler.AdminCreateAgent)
+			admin.PUT("/agents/:id/status", handler.AdminUpdateAgentStatus)
+			admin.POST("/agents/:id/reset-password", handler.AdminResetAgentPassword)
+			admin.PUT("/agents/:id/plans", handler.AdminUpdateAgentPlans)
+			admin.GET("/agents/:id/plan-fees", handler.AdminGetAgentPlanFees)
+			admin.PUT("/agents/:id/plan-fees", handler.AdminPutAgentPlanFees)
+			admin.PUT("/agents/:id/limits", handler.AdminUpdateAgentLimits)
+			admin.POST("/agents/:id/assign-cdks", handler.AdminAssignAgentCDKs)
+			admin.POST("/agents/:id/unassign-cdks", handler.AdminUnassignAgentCDKs)
+			admin.GET("/agents/:id/records", handler.AdminListAgentRecords)
+
+			// 代理渠道策略（已分配卡密是否禁止公开兑换）
+			admin.GET("/agent-policy", handler.AdminGetAgentCDKPolicy)
+			admin.PUT("/agent-policy", handler.AdminPutAgentCDKPolicy)
+
+			// 套餐代理价：全局默认 + 每代理覆盖
+			admin.GET("/agent-plan-fees", handler.AdminGetAgentDefaultPlanFees)
+			admin.PUT("/agent-plan-fees", handler.AdminPutAgentDefaultPlanFees)
+
+			admin.GET("/local-stock/summary", handler.AdminGetLocalStockSummary)
+			admin.POST("/local-stock/import", handler.AdminImportLocalStock)
+
+			// 代理购卡订单
+			admin.GET("/agent-orders", handler.AdminListAgentOrders)
+			admin.POST("/agent-orders/:order_no/retry", handler.AdminRetryAgentOrder)
+		}
+	}
+
+	// 托管前端 SPA（当设置了 WEB_DIR 时）：真实存在的文件直出，其余回退到 index.html
+	if webDir != "" {
+		indexFile := filepath.Join(webDir, "index.html")
+		r.NoRoute(func(c *gin.Context) {
+			p := c.Request.URL.Path
+			if strings.HasPrefix(p, "/api") || strings.HasPrefix(p, "/health") {
+				c.JSON(404, gin.H{"error": "not found"})
+				return
+			}
+			if c.Request.Method != "GET" && c.Request.Method != "HEAD" {
+				c.JSON(404, gin.H{"error": "not found"})
+				return
+			}
+			// 防目录穿越：path.Clean 后再拼接，确保不越出 webDir
+			clean := path.Clean("/" + strings.TrimPrefix(p, "/"))
+			if clean != "/" {
+				fp := filepath.Join(webDir, filepath.FromSlash(clean))
+				if st, err := os.Stat(fp); err == nil && !st.IsDir() {
+					c.File(fp)
+					return
+				}
+			}
+			c.File(indexFile)
+		})
+	}
+}
+
+func (s *Server) Run(addr string) error {
+	return s.engine.Run(addr)
+}

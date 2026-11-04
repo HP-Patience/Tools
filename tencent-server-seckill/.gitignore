@@ -1,0 +1,9 @@
+__pycache__/
+venv/
+.state.json
+config.json
+*.log
+.state.json.tmp
+config.json.tmp
+.venv/
+.learnings/

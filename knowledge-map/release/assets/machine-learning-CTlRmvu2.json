@@ -1,0 +1,208 @@
+{
+  "schemaVersion": 1,
+  "id": "example-ml",
+  "title": "机器学习",
+  "description": "示例地图 · 展示知识结构、疑问和跨节点联系，不代表你的学习记录。",
+  "updatedAt": "2026-09-10T00:00:00Z",
+  "nodes": [
+    {
+      "id": "ml",
+      "title": "机器学习",
+      "parentId": null,
+      "placement": "main",
+      "summary": "我正在搭建对机器学习的整体认识：先理解问题与数据，再理解模型怎样学习，以及如何判断它是否真的学到了规律。",
+      "provenance": "user",
+      "questions": [],
+      "sourceIds": ["video"],
+      "createdAt": "2026-09-10T00:00:00Z",
+      "updatedAt": "2026-09-10T00:00:00Z"
+    },
+    {
+      "id": "foundations",
+      "title": "基础概念",
+      "parentId": "ml",
+      "placement": "main",
+      "summary": "先分清不同的学习任务，理解输入、输出和训练数据在其中扮演的角色。",
+      "provenance": "user",
+      "questions": [],
+      "sourceIds": ["video"],
+      "createdAt": "2026-09-10T00:00:00Z",
+      "updatedAt": "2026-09-10T00:00:00Z"
+    },
+    {
+      "id": "data",
+      "title": "数据与特征",
+      "parentId": "ml",
+      "placement": "main",
+      "summary": "把现实中的对象表达为模型可以使用的数据，并区分学习和评估使用的数据。",
+      "provenance": "user",
+      "questions": [],
+      "sourceIds": ["video"],
+      "createdAt": "2026-09-10T00:00:00Z",
+      "updatedAt": "2026-09-10T00:00:00Z"
+    },
+    {
+      "id": "training",
+      "title": "模型学习",
+      "parentId": "ml",
+      "placement": "main",
+      "summary": "把损失函数、优化过程和模型复杂度联系起来。",
+      "provenance": "user",
+      "questions": [],
+      "sourceIds": ["video"],
+      "createdAt": "2026-09-10T00:00:00Z",
+      "updatedAt": "2026-09-10T00:00:00Z"
+    },
+    {
+      "id": "evaluation",
+      "title": "评估与泛化",
+      "parentId": "ml",
+      "placement": "main",
+      "summary": "不只看模型在训练数据上的表现，还要关心面对新数据的效果。",
+      "provenance": "user",
+      "questions": [],
+      "sourceIds": ["video"],
+      "createdAt": "2026-09-10T00:00:00Z",
+      "updatedAt": "2026-09-10T00:00:00Z"
+    },
+    {
+      "id": "supervised",
+      "title": "监督学习",
+      "parentId": "foundations",
+      "placement": "main",
+      "summary": "训练样本带有标签，模型学习输入与标签之间的关系。",
+      "provenance": "user",
+      "questions": [],
+      "sourceIds": ["video"],
+      "createdAt": "2026-09-10T00:00:00Z",
+      "updatedAt": "2026-09-10T00:00:00Z"
+    },
+    {
+      "id": "unsupervised",
+      "title": "无监督学习",
+      "parentId": "foundations",
+      "placement": "main",
+      "summary": "没有事先给定的目标标签，尝试发现数据中的分组或结构。",
+      "provenance": "user",
+      "questions": [],
+      "sourceIds": ["video"],
+      "createdAt": "2026-09-10T00:00:00Z",
+      "updatedAt": "2026-09-10T00:00:00Z"
+    },
+    {
+      "id": "features",
+      "title": "特征与标签",
+      "parentId": "data",
+      "placement": "main",
+      "summary": "特征是描述样本的输入信息；标签是监督学习希望预测的目标。",
+      "provenance": "user",
+      "questions": [],
+      "sourceIds": ["video"],
+      "createdAt": "2026-09-10T00:00:00Z",
+      "updatedAt": "2026-09-10T00:00:00Z"
+    },
+    {
+      "id": "split",
+      "title": "数据集划分",
+      "parentId": "data",
+      "placement": "main",
+      "summary": "训练、验证和测试使用不同的数据，避免只根据训练效果判断模型。",
+      "provenance": "user",
+      "questions": [],
+      "sourceIds": ["video"],
+      "createdAt": "2026-09-10T00:00:00Z",
+      "updatedAt": "2026-09-10T00:00:00Z"
+    },
+    {
+      "id": "loss",
+      "title": "损失函数",
+      "parentId": "training",
+      "placement": "main",
+      "summary": "用一个可计算的量表达预测与目标之间的差距，为学习提供优化方向。",
+      "provenance": "user",
+      "questions": [],
+      "sourceIds": ["video"],
+      "createdAt": "2026-09-10T00:00:00Z",
+      "updatedAt": "2026-09-10T00:00:00Z"
+    },
+    {
+      "id": "complexity",
+      "title": "模型复杂度",
+      "parentId": "training",
+      "placement": "main",
+      "summary": "初步理解为模型表达不同规律的能力。它与训练效果、泛化表现有关，但不是越复杂就一定越好。",
+      "provenance": "user",
+      "questions": [],
+      "sourceIds": ["video"],
+      "createdAt": "2026-09-10T00:00:00Z",
+      "updatedAt": "2026-09-10T00:00:00Z"
+    },
+    {
+      "id": "gradient",
+      "title": "梯度下降",
+      "parentId": "training",
+      "placement": "main",
+      "summary": "根据梯度提供的局部变化信息，逐步调整参数，尝试降低损失。",
+      "provenance": "user",
+      "questions": [],
+      "sourceIds": ["video"],
+      "createdAt": "2026-09-10T00:00:00Z",
+      "updatedAt": "2026-09-10T00:00:00Z"
+    },
+    {
+      "id": "overfit",
+      "title": "过拟合",
+      "parentId": "evaluation",
+      "placement": "main",
+      "summary": "模型在训练数据上表现很好，但换一批没见过的数据，表现就变差了。它可能记住了训练数据的细节，而没有学到足够通用的规律。",
+      "provenance": "user",
+      "questions": [
+        {
+          "id": "complexity-question",
+          "text": "为什么模型复杂度越高，有时反而越容易过拟合？",
+          "status": "open"
+        }
+      ],
+      "sourceIds": ["video"],
+      "createdAt": "2026-09-10T00:00:00Z",
+      "updatedAt": "2026-09-10T00:00:00Z"
+    },
+    {
+      "id": "metrics",
+      "title": "评估指标",
+      "parentId": "evaluation",
+      "placement": "main",
+      "summary": "结合任务目标衡量表现，不把不同指标混为一谈。",
+      "provenance": "user",
+      "questions": [],
+      "sourceIds": ["video"],
+      "createdAt": "2026-09-10T00:00:00Z",
+      "updatedAt": "2026-09-10T00:00:00Z"
+    }
+  ],
+  "relations": [
+    {
+      "id": "complexity-overfit",
+      "source": "complexity",
+      "target": "overfit",
+      "label": "相关因素",
+      "description": "模型复杂度与过拟合有关，具体机制还需要继续理解。",
+      "status": "confirmed"
+    },
+    {
+      "id": "split-overfit",
+      "source": "split",
+      "target": "overfit",
+      "label": "帮助识别",
+      "status": "confirmed"
+    }
+  ],
+  "sources": [
+    {
+      "id": "video",
+      "title": "机器学习入门 · 示例视频笔记",
+      "kind": "course",
+      "locator": "第 3 节 / 示例来源"
+    }
+  ]
+}

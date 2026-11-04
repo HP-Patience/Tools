@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="460" viewBox="0 0 1200 460" role="img" aria-labelledby="title desc">
+  <title id="title">QQBookExporter — 从在线书架，到本地书页</title>
+  <desc id="desc">居中标题下，一本打开的书连接在线章节与本地 Markdown、TXT、EPUB 和 PDF 文件。新版站点导出后，可用独立工具打包电子书。</desc>
+  <rect width="1200" height="460" rx="24" fill="#101F32"/>
+  <g id="identity" text-anchor="middle" font-family="Segoe UI, Microsoft YaHei, sans-serif">
+    <text x="600" y="58" fill="#90B6C7" font-size="18" letter-spacing="5">YOUR BOOKS · YOUR SHELF</text>
+    <text x="600" y="137" fill="#F8F3E8" font-size="68" font-weight="700" letter-spacing="-2">QQBookExporter</text>
+    <text x="600" y="184" fill="#C0CDDA" font-size="26" letter-spacing="3">从在线书架，到本地书页。</text>
+  </g>
+  <g id="online-chapters" transform="translate(150 252)">
+    <rect width="222" height="136" rx="10" fill="#192D44" stroke="#385269"/>
+    <path d="M0 32H222" stroke="#385269"/>
+    <circle cx="17" cy="16" r="4" fill="#80D4C3"/>
+    <path d="M32 16H90" stroke="#58748D" stroke-width="5" stroke-linecap="round"/>
+    <text x="22" y="66" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="23" fill="#F8F3E8">在线章节</text>
+    <path d="M24 86H193M24 103H172M24 120H184" stroke="#58748D" stroke-width="5" stroke-linecap="round"/>
+  </g>
+  <g id="export-path" fill="none" stroke="#80D4C3" stroke-width="2.5">
+    <path d="M397 320H474M466 313L474 320L466 327"/>
+    <path d="M726 320H803M795 313L803 320L795 327"/>
+  </g>
+  <g id="local-book" transform="translate(500 248)">
+    <path d="M0 12Q50 -2 100 18Q150 -2 200 12V144Q150 130 100 150Q50 130 0 144Z" fill="#F8F3E8"/>
+    <path d="M100 18V150" stroke="#CBBEAC" stroke-width="2"/>
+    <path d="M18 39Q47 32 80 43M18 58Q47 51 80 62M18 77Q47 70 80 81M18 96Q47 89 80 100M18 115Q47 108 80 119M120 43Q151 32 182 39M120 62Q151 51 182 58M120 81Q151 70 182 77M120 100Q151 89 182 96M120 119Q151 108 182 115" fill="none" stroke="#CBBEAC" stroke-width="3"/>
+    <path d="M155 7V51L165 44L175 51V7" fill="#E4AF77"/>
+  </g>
+  <g id="output-formats" transform="translate(830 252)" font-family="Consolas, monospace" font-size="22" font-weight="600">
+    <rect width="220" height="58" rx="8" fill="#203C48"/>
+    <text x="20" y="38" fill="#80D4C3">.md</text><text x="119" y="38" fill="#D2E5E6">.txt</text>
+    <rect y="78" width="220" height="58" rx="8" fill="#2F3540"/>
+    <text x="20" y="116" fill="#E4AF77">.epub</text><text x="119" y="116" fill="#F8F3E8">.pdf</text>
+  </g>
+  <text x="600" y="435" text-anchor="middle" fill="#90B6C7" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="18">章节与插图留在一起，阅读从这里继续。</text>
+</svg>

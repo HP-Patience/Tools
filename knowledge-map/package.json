@@ -1,0 +1,49 @@
+{
+  "name": "zhixu-personal-atlas",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "preview": "vite preview --host 127.0.0.1",
+    "typecheck": "tsc --noEmit",
+    "validate": "tsx scripts/validate.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "build": "npm run schema:check && npm run typecheck && tsx scripts/build.ts",
+    "verify:release": "tsx scripts/verify-release.ts",
+    "check": "npm run schema:check && npm run typecheck && npm run validate && npm test",
+    "backup": "tsx scripts/backup.ts",
+    "restore": "tsx scripts/restore.ts",
+    "format": "prettier --write src scripts tests schema data examples *.ts *.json",
+    "format:check": "prettier --check src scripts tests schema data examples *.ts *.json",
+    "schema:generate": "tsx scripts/generate-validator.ts",
+    "schema:check": "tsx scripts/generate-validator.ts --check"
+  },
+  "dependencies": {
+    "@dagrejs/dagre": "3.1.1",
+    "@xyflow/react": "12.11.6",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "katex": "^0.18.7",
+    "lucide-react": "1.43.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "prettier": "3.9.6",
+    "tsx": "4.23.13",
+    "typescript": "7.0.2",
+    "vite": "8.2.2",
+    "vitest": "5.0.0"
+  }
+}

@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+data/
+.playwright-mcp/
+*.sqlite*
+*.db
+*.log
+.env
+.env.*
+*.txt
+!requirements.txt
+exports/
+docs/*.png
+docs/design.md
+
+node_modules/
+dist/

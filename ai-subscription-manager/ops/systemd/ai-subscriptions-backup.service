@@ -1,0 +1,12 @@
+[Unit]
+Description=Subscription Desk daily backup
+[Service]
+Type=oneshot
+User=subscription
+Group=subscription
+ExecStart=/srv/ai-subscriptions/current/.venv/bin/python /srv/ai-subscriptions/current/ops/backup.py /srv/ai-subscriptions/shared/subscriptions.db /srv/ai-subscriptions/shared/backups
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/ai-subscriptions/shared

@@ -1,0 +1,232 @@
+import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
+import { useAgentAuthStore } from '../stores/agentAuth'
+import { AGENT_ENABLED } from '../lib/features'
+
+// 管理端入口故意不用 /admin，降低扫路径风险。API 仍为 /api/v1/admin/*（服务端鉴权）。
+const OPS_BASE = '/ops'
+
+const agentRoutes: RouteRecordRaw[] = [
+  // 代理隐藏换码页（不进导航；管理员设密码后使用）
+  {
+    path: '/partner/swap',
+    name: 'AgentCDKSwap',
+    component: () => import('../views/user/AgentSwapView.vue'),
+  },
+  {
+    path: '/a/swap',
+    redirect: '/partner/swap',
+  },
+  {
+    path: '/partner/login',
+    name: 'PartnerLogin',
+    component: () => import('../views/partner/LoginView.vue'),
+    meta: { partnerGuest: true },
+  },
+  {
+    path: '/partner',
+    component: () => import('../layouts/PartnerLayout.vue'),
+    meta: { requiresAgent: true },
+    children: [
+      { path: '', name: 'PartnerHome', component: () => import('../views/partner/PartnerHome.vue') },
+      { path: 'batch', name: 'PartnerBatch', component: () => import('../views/partner/BatchView.vue') },
+      { path: 'orders', name: 'PartnerOrders', component: () => import('../views/partner/PartnerOrdersView.vue') },
+      { path: 'cdks', name: 'PartnerCdks', component: () => import('../views/partner/CdkInventoryView.vue') },
+      { path: 'records', name: 'PartnerRecords', component: () => import('../views/partner/RecordsView.vue') },
+      { path: 'api-keys', name: 'PartnerApiKeys', component: () => import('../views/partner/ApiKeysView.vue') },
+      { path: 'api-docs', name: 'PartnerApiDocs', component: () => import('../views/partner/ApiDocsView.vue') },
+      { path: 'settings', name: 'PartnerSettings', component: () => import('../views/partner/SettingsView.vue') },
+    ],
+  },
+]
+
+const routes: RouteRecordRaw[] = [
+  {
+    path: '/',
+    name: 'Home',
+    component: () => import('../views/HomeView.vue'),
+    // 客户链接用 /?code=卡密。带卡密时直接进兑换页，不要停在首页。
+    beforeEnter: (to) => {
+      const code = String(to.query.code || to.query.cdk || '').trim()
+      if (!code) return true
+      return { path: '/recharge', query: { ...to.query, code } }
+    },
+  },
+  // 旧登录路径 → 隐蔽入口
+  { path: '/auth/login', redirect: `${OPS_BASE}/login` },
+  { path: '/admin', redirect: OPS_BASE },
+  // 代理管理 / 代理购卡已下线，写在通用 /admin 重定向前，避免再跳进后台页
+  { path: '/admin/agents', redirect: '/404' },
+  { path: '/admin/agent-orders', redirect: '/404' },
+  { path: `${OPS_BASE}/agents`, redirect: '/404' },
+  { path: `${OPS_BASE}/agent-orders`, redirect: '/404' },
+  { path: '/admin/:pathMatch(.*)*', redirect: (to) => `${OPS_BASE}/${to.params.pathMatch || ''}` },
+  {
+    path: `${OPS_BASE}/login`,
+    name: 'Login',
+    component: () => import('../views/auth/LoginView.vue'),
+  },
+  {
+    path: `${OPS_BASE}/setup`,
+    name: 'Setup',
+    component: () => import('../views/admin/SetupView.vue'),
+    meta: { setupPage: true },
+  },
+  {
+    path: '/auth/register',
+    name: 'Register',
+    component: () => import('../views/auth/RegisterView.vue'),
+  },
+  {
+    path: '/dashboard',
+    name: 'Dashboard',
+    component: () => import('../views/user/DashboardView.vue'),
+  },
+  {
+    path: '/billing',
+    name: 'BillingCheck',
+    component: () => import('../views/user/BillingCheckView.vue'),
+  },
+  {
+    path: '/convert',
+    name: 'SessionConvert',
+    component: () => import('../views/user/SessionConvertView.vue'),
+  },
+  {
+    path: '/inspect',
+    name: 'SessionInspect',
+    component: () => import('../views/user/SessionInspectView.vue'),
+  },
+  {
+    path: '/x',
+    redirect: (to) => ({ path: '/recharge', query: { ...to.query, product: 'x' } }),
+  },
+  {
+    path: '/recharge',
+    name: 'Recharge',
+    component: () => import('../views/user/RechargeView.vue'),
+  },
+  {
+    path: '/batch',
+    name: 'BatchRedeem',
+    component: () => import('../views/user/BatchRedeemView.vue'),
+  },
+  {
+    path: '/history',
+    name: 'CDKStatusLookup',
+    component: () => import('../views/user/CDKStatusView.vue'),
+  },
+  {
+    path: '/lookup',
+    redirect: '/history',
+  },
+  // 代理端（已停用）：AGENT_ENABLED 关闭时不注册，访问落到 404。代码保留，开关见 lib/features.ts
+  ...(AGENT_ENABLED ? agentRoutes : []),
+  {
+    path: OPS_BASE,
+    component: () => import('../layouts/AdminLayout.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true },
+    children: [
+      { path: '', name: 'AdminDashboard', component: () => import('../views/admin/AdminDashboard.vue') },
+      { path: 'cdkeys', name: 'CDKeyManagement', component: () => import('../views/admin/CDKeyManagement.vue') },
+      { path: 'batch-recharge', name: 'BatchRecharge', component: () => import('../views/admin/BatchRechargeView.vue') },
+      { path: 'orders', name: 'OrderReconcile', component: () => import('../views/admin/OrderReconcile.vue') },
+      { path: 'appearance', name: 'SiteAppearance', component: () => import('../views/admin/SiteAppearance.vue') },
+      { path: 'notify', name: 'NotifySettings', component: () => import('../views/admin/NotifySettings.vue') },
+      { path: 'platforms', name: 'Platforms', component: () => import('../views/admin/PlatformsView.vue') },
+      { path: 'x', name: 'XMember', component: () => import('../views/admin/XMemberView.vue') },
+      { path: 'tg', name: 'TGMember', component: () => import('../views/admin/TgMemberView.vue') },
+      { path: 'integration', redirect: `${OPS_BASE}/platforms` },
+      { path: 'webhooks', redirect: { path: `${OPS_BASE}/platforms`, query: { panel: 'webhook' } } },
+      {
+        path: 'card-selection',
+        redirect: (to) => ({
+          path: `${OPS_BASE}/platforms`,
+          query: { tab: 'cards', account: String(to.query.account_id || to.query.account || '') },
+        }),
+      },
+      { path: 'audit', name: 'AuditLogs', component: () => import('../views/admin/AuditLogs.vue') },
+      // 旧路径兼容
+      { path: 'accounts', redirect: OPS_BASE },
+      { path: 'proxies', redirect: OPS_BASE },
+      { path: 'recharge-requests', redirect: OPS_BASE },
+      { path: 'billing', redirect: `${OPS_BASE}/orders` },
+      { path: 'cards', redirect: `${OPS_BASE}/platforms` },
+      { path: 'statistics', redirect: OPS_BASE },
+      { path: 'checkout', redirect: OPS_BASE },
+      { path: 'reconcile', redirect: `${OPS_BASE}/orders` },
+    ],
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'NotFound',
+    component: () => import('../views/NotFoundView.vue'),
+  },
+]
+
+const router = createRouter({
+  history: createWebHistory(import.meta.env.BASE_URL),
+  routes,
+})
+
+let setupChecked = false
+let setupInstalled = true
+
+async function ensureSetupStatus(): Promise<boolean> {
+  if (setupChecked) return setupInstalled
+  try {
+    const r = await fetch('/api/v1/setup/status')
+    const d = await r.json()
+    setupInstalled = !!d.installed
+  } catch {
+    setupInstalled = true // 后端不可达时不阻断登录页
+  }
+  setupChecked = true
+  return setupInstalled
+}
+
+const retiredAdminPaths = [`${OPS_BASE}/agents`, `${OPS_BASE}/agent-orders`, '/admin/agents', '/admin/agent-orders']
+
+function isRetiredAdminPath(path: string) {
+  const normalized = path.length > 1 ? path.replace(/\/+$/, '') : path
+  return retiredAdminPaths.some((p) => normalized === p || normalized.startsWith(`${p}/`))
+}
+
+router.beforeEach(async (to) => {
+  if (isRetiredAdminPath(to.path)) {
+    return '/404'
+  }
+
+  const authStore = useAuthStore()
+  const agentStore = useAgentAuthStore()
+  const installed = await ensureSetupStatus()
+
+  // 未安装：强制进安装向导（登录页除外可看，但推荐 setup）
+  if (!installed && !to.meta.setupPage && to.path.startsWith(OPS_BASE) && to.path !== `${OPS_BASE}/login`) {
+    return `${OPS_BASE}/setup`
+  }
+  if (installed && to.meta.setupPage) {
+    return `${OPS_BASE}/login`
+  }
+
+  if (to.meta.requiresAdmin && !authStore.isLoggedIn) {
+    return {
+      path: `${OPS_BASE}/login`,
+      query: { redirect: to.fullPath },
+    }
+  }
+
+  if ((to.path === `${OPS_BASE}/login` || to.path === '/auth/login') && authStore.isLoggedIn) {
+    return OPS_BASE
+  }
+
+  if (to.meta.requiresAgent && !agentStore.isLoggedIn) {
+    return { path: '/partner/login', query: { redirect: to.fullPath } }
+  }
+  if (to.meta.partnerGuest && agentStore.isLoggedIn && to.path === '/partner/login') {
+    return '/partner'
+  }
+  return true
+})
+
+export default router

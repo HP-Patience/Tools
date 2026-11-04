@@ -1,0 +1,58 @@
+# ============================================================
+# Dreamcore Style Transfer Skill — 总配置文件
+# 版本: 2.0.0 | 架构: 5-Layer Closed-Loop Microservice
+# ============================================================
+
+skill:
+  id: "dreamcore-style-transfer"
+  name: "梦核风格转换器"
+  version: "2.0.0"
+  category: "image-style-transfer"
+  tags: ["dreamcore", "weirdcore", "liminal", "nostalgia", "ai-art"]
+
+  # 权限与访问控制
+  access:
+    auth_required: false          # 是否需要登录
+    vip_only: false               # 是否为付费会员专属
+    rate_limit: 10                # 每分钟最大调用次数
+    daily_quota: 200              # 每日最大调用次数
+
+  # 依赖的外部服务
+  dependencies:
+    image_analysis:
+      provider: "claude-vision"   # 使用 Claude Vision 分析图片
+      fallback: "local-cv"        # 备选方案：本地CV模型
+    image_generation:
+      supported: ["midjourney", "stable-diffusion", "dall-e-3"]
+      output: "prompt_only"       # 本Skill生成提示词，不直接调用生成API
+
+  # 触发的模型配置
+  model:
+    primary: "claude-fable-5"     # 主推理模型
+    vision: "claude-vision"       # 图片分析模型
+    effort: "high"                # 推理深度
+
+# 工作流阶段定义
+pipeline:
+  stages:
+    - id: "trigger"
+      name: "唤醒与意图识别"
+      timeout_ms: 500
+    - id: "input_validation"
+      name: "参数校验与槽位填充"
+      timeout_ms: 1000
+    - id: "image_analysis"
+      name: "图片内容分析"
+      timeout_ms: 8000
+    - id: "style_matching"
+      name: "风格匹配与推荐"
+      timeout_ms: 2000
+    - id: "prompt_assembly"
+      name: "提示词组装"
+      timeout_ms: 3000
+    - id: "output_composition"
+      name: "多模态输出编排"
+      timeout_ms: 2000
+    - id: "memory_sync"
+      name: "记忆同步与持久化"
+      timeout_ms: 1000

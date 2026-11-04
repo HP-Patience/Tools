@@ -1,0 +1,17 @@
+[Unit]
+Description=Subscription Desk expiry check
+After=network.target
+[Service]
+Type=oneshot
+User=subscription
+Group=subscription
+WorkingDirectory=/srv/ai-subscriptions/current/backend
+EnvironmentFile=/srv/ai-subscriptions/shared/app.env
+ExecStart=/srv/ai-subscriptions/current/.venv/bin/python -m app.cli run-reminders
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/ai-subscriptions/shared
+TimeoutStartSec=120

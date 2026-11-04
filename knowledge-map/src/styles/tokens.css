@@ -1,0 +1,13 @@
+:root {
+  --paper: #f8f9f4;
+  --surface: #fffefa;
+  --ink: #2f3d30;
+  --muted: #7c8874;
+  --line: #e1e7da;
+  --green: #365e46;
+  --soft: #eaf0e3;
+  --amber: #a28343;
+  --font:
+    "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC",
+    "Noto Sans CJK SC", sans-serif;
+}

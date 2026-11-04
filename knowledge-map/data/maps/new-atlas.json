@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "new-atlas",
+  "title": "新知识地图",
+  "description": "为另一门学习主题保留的独立知识地图。",
+  "updatedAt": "2026-09-11T00:00:00.000Z",
+  "nodes": [],
+  "relations": [],
+  "sources": []
+}

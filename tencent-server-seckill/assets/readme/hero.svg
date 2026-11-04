@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 280" role="img" aria-labelledby="hero-title hero-desc">
+  <title id="hero-title">腾讯云服务器抢购助手</title>
+  <desc id="hero-desc">本地 Web 控制台与 Python 命令行。设置地域与场次，微信扫码复用登录态，明确确认后执行抢购。默认场次为 10:00 和 15:00。</desc>
+  <rect width="1200" height="280" rx="18" fill="#101211"/>
+  <g font-family="Segoe UI,Microsoft YaHei,PingFang SC,sans-serif">
+    <text x="54" y="62" fill="#a4ad9d" font-size="24">tencent-server-seckill</text>
+    <text x="50" y="140" fill="#edf1e9" font-size="58" font-weight="700">腾讯云服务器抢购助手</text>
+    <text x="54" y="199" fill="#c7f56d" font-size="30">本地控制台 · 后台扫码 · 登录态复用</text>
+    <text x="54" y="247" fill="#a4ad9d" font-size="24">Web + CLI / Python + Playwright</text>
+  </g>
+  <g transform="translate(884 38)">
+    <rect width="264" height="204" rx="12" fill="#191c1a" stroke="#30352f" stroke-width="2"/>
+    <text x="26" y="43" font-family="Segoe UI,Microsoft YaHei,sans-serif" font-size="26" fill="#a4ad9d">默认场次</text>
+    <text x="26" y="106" font-family="Consolas,monospace" font-size="52" fill="#c7f56d">10:00</text>
+    <path d="M26 125H238" stroke="#30352f" stroke-width="2"/>
+    <text x="26" y="182" font-family="Consolas,monospace" font-size="52" fill="#edf1e9">15:00</text>
+  </g>
+</svg>

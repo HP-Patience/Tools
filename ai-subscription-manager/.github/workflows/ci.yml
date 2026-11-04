@@ -1,0 +1,54 @@
+name: CI
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Backend dependencies
+        run: pip install -r backend/requirements.lock
+      - name: Backend tests and schema
+        working-directory: backend
+        env:
+          APP_DATABASE_PATH: /tmp/subscription-ci.db
+        run: |
+          python -m pytest -q
+          alembic upgrade head
+          alembic check
+      - name: Frontend checks
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run typecheck
+          npm run build
+          npx playwright install --with-deps chromium
+          npx playwright test
+      - name: Create release archive
+        if: github.event_name != 'pull_request'
+        run: tar -czf release.tar.gz --exclude='__pycache__' --exclude='*.pyc' backend/app backend/alembic backend/alembic.ini backend/requirements.lock frontend/dist ops
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: github.event_name != 'pull_request'
+        with:
+          name: release
+          path: release.tar.gz
+          retention-days: 7
+  deploy:
+    needs: verify
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.DEPLOY_ENABLED == 'true'
+    uses: ./.github/workflows/deploy.yml
+    with:
+      sha: ${{ github.sha }}
+    secrets: inherit

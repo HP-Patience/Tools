@@ -1,0 +1,177 @@
+<template>
+  <div class="u-page">
+    <UserPageHeader
+      :title="t('home.heroTitle')"
+      :subtitle="t('home.heroSub')"
+      badges
+    />
+
+    <div class="u-main max-w-6xl pb-16">
+      <div class="mb-12 text-center">
+        <a
+          :href="CARD_SHOP_URL"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="btn-primary"
+        >{{ t('home.buyCdk') }}</a>
+      </div>
+
+      <!-- Main Services -->
+      <div class="grid md:grid-cols-2 xl:grid-cols-4 gap-6 animate-slideInUp">
+        <router-link
+          v-for="svc in services"
+          :key="svc.to"
+          :to="svc.to"
+          class="card card-hover group"
+        >
+          <span class="grid h-12 w-12 place-items-center rounded-2xl" style="background: var(--primary-soft); color: var(--primary)" v-html="svc.icon" />
+          <h3 class="mt-4 text-xl font-bold text-ink">{{ svc.title }}</h3>
+          <p class="mt-1 text-sm text-subtle">{{ svc.en }}</p>
+          <div class="mt-5 space-y-2 text-sm text-muted">
+            <div v-for="line in svc.points" :key="line" class="flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" style="color: var(--primary)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+              <span>{{ line }}</span>
+            </div>
+          </div>
+          <div class="mt-6 text-sm font-medium app-link">{{ svc.cta }} →</div>
+        </router-link>
+      </div>
+
+      <!-- Account tools (not part of the CDK loop) -->
+      <div class="mt-14 animate-slideInUp">
+        <h3 class="text-lg font-bold text-ink mb-4">{{ t('home.toolsTitle') }}</h3>
+        <div class="grid md:grid-cols-2 gap-6">
+          <router-link
+            v-for="tool in tools"
+            :key="tool.to"
+            :to="tool.to"
+            class="card card-hover group flex flex-col"
+          >
+            <span
+              class="grid h-12 w-12 place-items-center rounded-2xl"
+              style="background: var(--primary-soft); color: var(--primary)"
+              v-html="tool.icon"
+            />
+            <div class="mt-4 flex flex-wrap items-baseline gap-2">
+              <h3 class="text-xl font-bold text-ink">{{ tool.title }}</h3>
+              <p class="text-sm text-subtle">{{ tool.en }}</p>
+            </div>
+            <div class="mt-3 space-y-2 text-sm text-muted flex-1">
+              <div v-for="line in tool.points" :key="line" class="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" style="color: var(--primary)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                <span>{{ line }}</span>
+              </div>
+            </div>
+            <div class="mt-6 text-sm font-medium app-link">{{ tool.cta }} →</div>
+          </router-link>
+        </div>
+      </div>
+
+      <!-- Flow Section -->
+      <div class="mt-20 pt-16 border-t bd">
+        <h3 class="text-2xl font-bold text-ink mb-10 text-center">{{ t('home.flowTitle') }}</h3>
+        <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div v-for="flow in flows" :key="flow.title" class="space-y-4">
+            <h4 class="font-bold text-ink">{{ flow.title }}</h4>
+            <div class="space-y-3 text-sm text-muted">
+              <div v-for="(step, i) in flow.steps" :key="i" class="flex gap-3">
+                <span class="grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-bold" style="background: var(--primary-soft); color: var(--primary)">{{ i + 1 }}</span>
+                <span>
+                  <template v-if="step.link">
+                    {{ step.prefix }}<a
+                      :href="CARD_SHOP_URL"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="app-link"
+                    >{{ step.link }}</a>
+                  </template>
+                  <template v-else>{{ step.text }}</template>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+import UserPageHeader from '../components/UserPageHeader.vue'
+
+const CARD_SHOP_URL = 'https://card.danew.cc'
+
+const { t } = useI18n({ useScope: 'global' })
+
+const services = computed(() => [
+  {
+    to: '/recharge',
+    title: t('home.services.recharge.title'),
+    en: t('home.services.recharge.en'),
+    cta: t('home.services.recharge.cta'),
+    icon: '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 14l2 2 4-4"/></svg>',
+    points: [t('home.services.recharge.p1'), t('home.services.recharge.p2'), t('home.services.recharge.p3')],
+  },
+  {
+    to: '/batch',
+    title: t('home.services.batch.title'),
+    en: t('home.services.batch.en'),
+    cta: t('home.services.batch.cta'),
+    icon: '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>',
+    points: [t('home.services.batch.p1'), t('home.services.batch.p2'), t('home.services.batch.p3')],
+  },
+  {
+    to: '/history',
+    title: t('home.services.lookup.title'),
+    en: t('home.services.lookup.en'),
+    cta: t('home.services.lookup.cta'),
+    icon: '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>',
+    points: [t('home.services.lookup.p1'), t('home.services.lookup.p2'), t('home.services.lookup.p3')],
+  },
+  {
+    to: '/billing',
+    title: t('home.services.billing.title'),
+    en: t('home.services.billing.en'),
+    cta: t('home.services.billing.cta'),
+    icon: '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+    points: [t('home.services.billing.p1'), t('home.services.billing.p2'), t('home.services.billing.p3')],
+  },
+])
+
+const tools = computed(() => [
+  {
+    to: '/convert',
+    title: t('home.tools.convert.title'),
+    en: t('home.tools.convert.en'),
+    cta: t('home.tools.convert.cta'),
+    icon: '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/><path d="M7 12h10"/><path d="m14 9 3 3-3 3"/></svg>',
+    points: [t('home.tools.convert.p1'), t('home.tools.convert.p2'), t('home.tools.convert.p3')],
+  },
+  {
+    to: '/inspect',
+    title: t('home.tools.inspect.title'),
+    en: t('home.tools.inspect.en'),
+    cta: t('home.tools.inspect.cta'),
+    icon: '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+    points: [t('home.tools.inspect.p1'), t('home.tools.inspect.p2'), t('home.tools.inspect.p3')],
+  },
+])
+
+type FlowStep = { text: string; prefix?: never; link?: never } | { prefix: string; link: string; text?: never }
+
+const flows = computed(() => [
+  {
+    title: t('home.flows.submit.title'),
+    steps: [
+      { prefix: t('home.flows.submit.s1Prefix'), link: t('home.flows.submit.s1Link') },
+      { text: t('home.flows.submit.s2') },
+      { text: t('home.flows.submit.s3') },
+    ] as FlowStep[],
+  },
+  { title: t('home.flows.batch.title'), steps: [{ text: t('home.flows.batch.s1') }, { text: t('home.flows.batch.s2') }, { text: t('home.flows.batch.s3') }] as FlowStep[] },
+  { title: t('home.flows.lookup.title'), steps: [{ text: t('home.flows.lookup.s1') }, { text: t('home.flows.lookup.s2') }, { text: t('home.flows.lookup.s3') }] as FlowStep[] },
+  { title: t('home.flows.billing.title'), steps: [{ text: t('home.flows.billing.s1') }, { text: t('home.flows.billing.s2') }, { text: t('home.flows.billing.s3') }] as FlowStep[] },
+])
+</script>

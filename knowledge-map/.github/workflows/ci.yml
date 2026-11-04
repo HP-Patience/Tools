@@ -1,0 +1,30 @@
+name: Verify
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run verify:release
+      - run: python3 -m unittest discover -s tests/deploy -v
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - run: bash deploy/install-test-caddy.sh
+      - run: python3 tests/security/caddy_smoke.py --caddy work/caddy --browser
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-test-failures
+          path: test-results/
+          retention-days: 7

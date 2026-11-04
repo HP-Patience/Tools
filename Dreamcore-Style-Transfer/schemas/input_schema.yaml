@@ -1,0 +1,185 @@
+# ============================================================
+# 输入参数规范 — 自然语言 → 结构化数据的映射
+# 包含: 必填/可选参数、校验规则、槽位填充、格式化转换
+# ============================================================
+
+version: "2.0.0"
+
+# ============================================================
+# 参数定义
+# ============================================================
+parameters:
+
+  # --- 必填参数 ---
+  image:
+    name: "图片"
+    required: true
+    type: "image"
+    description: "用户上传的待转换图片"
+    accepted_formats:
+      - "image/png"
+      - "image/jpeg"
+      - "image/jpg"
+      - "image/webp"
+      - "image/gif"
+      - "image/bmp"
+    max_size_mb: 50
+    min_resolution: "64x64"
+    max_resolution: "8192x8192"
+    validation:
+      - rule: "file_type"
+        check: "extension in accepted_formats"
+        error_message: "不支持的图片格式，请上传 PNG / JPG / WEBP / GIF / BMP 格式的图片。"
+      - rule: "file_size"
+        check: "size <= max_size_mb * 1024 * 1024"
+        error_message: "图片过大（超过 {max_size_mb}MB），请压缩后重新上传。"
+      - rule: "not_corrupted"
+        check: "can_open_and_decode"
+        error_message: "图片文件损坏或无法读取，请重新上传。"
+    slot_filling:
+      strategy: "proactive_ask"
+      prompt: "请上传您想要转换的图片 📷（支持 PNG / JPG / WEBP，最大 50MB）"
+      retry_limit: 3
+      retry_prompt: "仍未收到图片，请确认您已上传了图片文件。"
+
+  # --- 必填参数（可推断） ---
+  style:
+    name: "目标风格"
+    required: true
+    type: "enum"
+    description: "用户想要的目标核风格"
+    values:
+      - dreamcore
+      - weirdcore
+      - liminal_space
+      - traumacore
+      - backrooms
+      - kidcore
+      - poolcore
+      - webcore
+      - hypnocore
+      - chinese_dreamcore
+    inferrable: true
+    inference_rules:
+      - source: "user_explicit_selection"
+        priority: 1
+      - source: "context_inheritance"
+        priority: 2
+        description: "继承上一轮对话中的风格选择"
+      - source: "mood_inference"
+        priority: 3
+        description: "根据用户描述的情绪推断"
+      - source: "scene_inference"
+        priority: 4
+        description: "根据图片场景类型推荐"
+    slot_filling:
+      strategy: "suggest_with_list"
+      prompt: "请选择您想要的风格（输入数字或名称）："
+      list_format: "numbered"
+      retry_limit: 2
+      fallback: "为您推荐了以下 3 种匹配的风格，请选择一个。"
+    validation:
+      - rule: "enum_value"
+        check: "style in allowed_values"
+        error_message: "暂不支持「{input}」风格，当前支持的风格有：{style_list}"
+
+  # --- 可选参数 ---
+  intensity:
+    name: "风格强度"
+    required: false
+    type: "enum"
+    default: "standard"
+    values: ["mild", "standard", "extreme"]
+    description: "控制风格效果的强烈程度"
+    aliases:
+      mild: ["轻微", "淡一点", "轻一点", "一点点", "微妙"]
+      standard: ["正常", "标准", "适中", "默认"]
+      extreme: ["强烈", "极致", "拉满", "重度", "极限"]
+    normalization:
+      "轻|淡|微|一点点": "mild"
+      "正常|标准|默认|适中": "standard"
+      "重|强|极|拉满|重度|极限": "extreme"
+    slot_filling:
+      strategy: "use_default"
+      prompt: "风格强度要哪种？（轻微 / 标准 / 强烈）默认为标准。"
+
+  target_model:
+    name: "目标生成模型"
+    required: false
+    type: "enum"
+    default: "midjourney"
+    values: ["midjourney", "stable_diffusion", "dall-e-3", "all"]
+    aliases:
+      midjourney: ["mj", "midjourney", "mid journey", "MJ"]
+      stable_diffusion: ["sd", "stable diffusion", "stablediffusion", "SD"]
+      dall-e-3: ["dalle", "dall-e", "dalle3", "openai"]
+    slot_filling:
+      strategy: "use_default"
+      prompt: "您想使用哪个AI绘画工具？（Midjourney / Stable Diffusion / DALL-E 3）默认为 Midjourney。"
+
+  aspect_ratio:
+    name: "画面比例"
+    required: false
+    type: "string"
+    description: "输出图片的宽高比"
+    default: "from_style_config"
+    validation:
+      - rule: "regex"
+        check: "matches ^\\d+:\\d+$"
+        error_message: "画面比例格式不正确，请使用 X:Y 格式，如 16:9、4:3、1:1。"
+    slot_filling:
+      strategy: "use_style_default"
+
+  language:
+    name: "提示词语言"
+    required: false
+    type: "enum"
+    default: "english"
+    values: ["english", "chinese"]
+    description: "输出提示词的语言（AI绘画工具通常对英文响应更好，建议英文）"
+
+# ============================================================
+# 综合校验组合
+# ============================================================
+validation_groups:
+  minimal:
+    description: "最小可用参数集"
+    required: ["image", "style"]
+
+  full:
+    description: "完整参数集"
+    required: ["image", "style"]
+    optional: ["intensity", "target_model", "aspect_ratio", "language"]
+
+# ============================================================
+# 错误码定义
+# ============================================================
+error_codes:
+  E001:
+    code: "MISSING_IMAGE"
+    message: "未检测到图片，请上传一张图片。"
+    recoverable: true
+  E002:
+    code: "INVALID_IMAGE_FORMAT"
+    message: "不支持的图片格式 {format}，支持: PNG, JPG, WEBP, GIF, BMP。"
+    recoverable: true
+  E003:
+    code: "IMAGE_TOO_LARGE"
+    message: "图片大小 {size}MB 超过限制 ({max}MB)。"
+    recoverable: true
+  E004:
+    code: "UNKNOWN_STYLE"
+    message: "未识别到风格「{input}」，当前支持的风格: {style_list}。"
+    recoverable: true
+  E005:
+    code: "AMBIGUOUS_STYLE"
+    message: "「{input}」可能指 {options}，请明确选择。"
+    recoverable: true
+  E006:
+    code: "IMAGE_ANALYSIS_FAILED"
+    message: "图片分析失败: {reason}。请尝试重新上传或换一张图片。"
+    recoverable: true
+  E007:
+    code: "RATE_LIMITED"
+    message: "请求过于频繁，请 {wait_seconds} 秒后再试。"
+    recoverable: true

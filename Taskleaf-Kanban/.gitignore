@@ -1,0 +1,17 @@
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.log
+.env
+.env.*
+!.env.example
+node_modules/
+dist/
+.playwright-mcp/
+test-results/
+playwright-report/
+work/
+
+data/*
+!data/tasks.example.json
+backups/

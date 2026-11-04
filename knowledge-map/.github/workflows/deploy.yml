@@ -1,0 +1,74 @@
+name: Deploy local build
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: zhixu-production
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run verify:release
+      - run: python3 -m unittest discover -s tests/deploy -v
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - run: bash deploy/install-test-caddy.sh
+      - run: python3 tests/security/caddy_smoke.py --caddy work/caddy --browser
+      # Deliberately no build: publish exactly the locally committed, verified release.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-release
+          path: release/
+          retention-days: 2
+          if-no-files-found: error
+  deploy:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-release
+          path: release
+      - name: Upload and atomically activate
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          [[ "$DEPLOY_HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]]
+          [[ "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          DEPLOY_PORT="${DEPLOY_PORT:-22}"
+          [[ "$DEPLOY_PORT" =~ ^[0-9]{1,5}$ ]]
+          (( DEPLOY_PORT > 0 && DEPLOY_PORT < 65536 ))
+          [[ "$RUN_NUMBER-$RUN_ATTEMPT" =~ ^[1-9][0-9]*-[1-9][0-9]*$ ]]
+          [[ -n "$SSH_KEY" && -n "$KNOWN_HOSTS" ]]
+          umask 077
+          mkdir -p "$HOME/.ssh"
+          printf '%s\n' "$SSH_KEY" > "$HOME/.ssh/zhixu"
+          printf '%s\n' "$KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          trap 'rm -f "$HOME/.ssh/zhixu"' EXIT
+          SSH=(-i "$HOME/.ssh/zhixu" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts")
+          TARGET="$DEPLOY_USER@$DEPLOY_HOST"
+          TOKEN="$RUN_NUMBER-$RUN_ATTEMPT"
+          ssh "${SSH[@]}" -p "$DEPLOY_PORT" "$TARGET" "mkdir /srv/zhixu/incoming/$TOKEN"
+          scp "${SSH[@]}" -P "$DEPLOY_PORT" -r release/. "$TARGET:/srv/zhixu/incoming/$TOKEN/"
+          ssh "${SSH[@]}" -p "$DEPLOY_PORT" "$TARGET" "python3 /opt/zhixu/activate.py activate $TOKEN"

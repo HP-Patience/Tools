@@ -1,0 +1,21 @@
+[Unit]
+Description=Subscription Desk API
+After=network.target
+[Service]
+Type=simple
+User=subscription
+Group=subscription
+WorkingDirectory=/srv/ai-subscriptions/current/backend
+EnvironmentFile=/srv/ai-subscriptions/shared/app.env
+EnvironmentFile=/srv/ai-subscriptions/current/release.env
+ExecStart=/srv/ai-subscriptions/current/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1 --proxy-headers --forwarded-allow-ips 127.0.0.1
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/ai-subscriptions/shared
+[Install]
+WantedBy=multi-user.target

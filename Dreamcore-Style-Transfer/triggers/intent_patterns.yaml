@@ -1,0 +1,185 @@
+# ============================================================
+# 触发模式库 — 意图识别与上下文唤醒
+# 支持: 精确匹配 / 模糊匹配 / 上下文继承 / 多语言
+# ============================================================
+
+# 版本
+version: "2.0.0"
+
+# ============================================================
+# 一级意图：直接触发 Skill 的入口模式
+# ============================================================
+trigger_patterns:
+
+  # --- 风格转换意图 ---
+  style_transfer:
+    priority: 1
+    description: "用户想要将图片转换为某种核风格"
+    patterns:
+      # 精确命令式
+      exact:
+        - "把这张图变成{style}风格"
+        - "将这张图片转换为{style}"
+        - "给这张照片加{style}滤镜"
+        - "用{style}风格处理这张图"
+        - "帮我转成{style}"
+        - "transform this image to {style}"
+        - "convert this to {style} style"
+        - "make this {style}"
+
+      # 模糊请求式
+      fuzzy:
+        - "这张图能不能变成{style}"
+        - "我想让这张图看起来{style}"
+        - "这张照片适合{style}吗"
+        - "帮我做一个{style}的效果"
+        - "能不能{style}一下"
+        - "can you make this {style}"
+        - "I want {style} aesthetic"
+
+      # 单关键词触发
+      keyword_only:
+        - "{style}"                    # 只说风格名
+        - "来点{style}"               # 口语化
+        - "整个{style}"               # 网络用语
+
+    # 风格槽位定义
+    style_slot:
+      values:
+        - "梦核|dreamcore|dream core|梦核风"
+        - "怪核|weirdcore|weird core|怪诞核"
+        - "阈限空间|liminal space|liminal|阈限"
+        - "伤核|traumacore|trauma core|创伤核"
+        - "后室|backrooms|the backrooms"
+        - "童年核|kidcore|kid core|童核"
+        - "池核|poolcore|pool core|泳池核"
+        - "网核|webcore|internetcore|网络核"
+        - "催眠核|hypnocore|hypno core|迷幻核"
+        - "中式梦核|chinese dreamcore|中国梦核|电子乡愁"
+
+  # --- 风格询问意图 ---
+  style_inquiry:
+    priority: 2
+    description: "用户想了解有哪些风格可选"
+    patterns:
+      exact:
+        - "有哪些核风格"
+        - "都有什么风格"
+        - "支持哪些风格"
+        - "列出所有风格"
+        - "what styles are available"
+        - "list all styles"
+
+  # --- 风格推荐意图 ---
+  style_recommend:
+    priority: 3
+    description: "用户描述了一种感觉/场景，希望推荐风格"
+    patterns:
+      exact:
+        - "我想要一种{feeling}的感觉"
+        - "有没有{feeling}一点的风格"
+        - "哪种风格比较{feeling}"
+        - "推荐一个{feeling}的风格"
+        - "什么风格适合{scene}"
+        - "给{scene}推荐风格"
+      fuzzy:
+        - "我这张图是{scene}，用什么风格好"
+        - "这个画面适合什么风格"
+        - "有没有那种{feeling}效果的"
+
+  # --- 调整意图 ---
+  style_tweak:
+    priority: 4
+    description: "用户对当前结果不满意，希望微调"
+    patterns:
+      exact:
+        - "再{adjustment}一点"
+        - "能{adjustment}一些吗"
+        - "太{attribute}了，{adjustment}一点"
+        - "make it more {adjustment}"
+        - "tone down the {attribute}"
+      fuzzy:
+        - "感觉不太对"
+        - "能不能换一种感觉"
+        - "不够{attribute}"
+        - "有点过了"
+    adjustment_slot:
+      values:
+        - "柔和|softer|less intense"
+        - "强烈|more intense|stronger"
+        - "温暖|warmer"
+        - "冷峻|colder"
+        - "模糊|blurrier"
+        - "清晰|sharper"
+
+# ============================================================
+# 二级意图：上下文继承规则
+# ============================================================
+context_inheritance:
+  # 规则：当用户更改目标风格时，继承上一次的图片
+  style_switch:
+    description: "用户在同一次对话中切换风格，保留原图"
+    trigger_phrases:
+      - "那{style}呢"
+      - "那换成{style}"
+      - "还是改成{style}吧"
+      - "试试{style}"
+      - "what about {style}"
+      - "try {style} instead"
+    inherit:
+      - "original_image"      # 继承上次的图片
+      - "image_description"   # 继承图片分析结果
+      - "intensity"           # 继承强度设定
+    reset:
+      - "style_selection"     # 重置风格选择
+      - "final_prompt"        # 清除旧提示词
+
+  # 规则：用户想在同一风格下调整参数
+  param_tweak:
+    description: "用户微调当前风格的参数"
+    trigger_phrases:
+      - "{adjustment}一点"
+      - "再{adjustment}"
+      - "{attribute}不够"
+    inherit:
+      - "style_selection"
+      - "original_image"
+      - "image_description"
+      - "final_prompt"        # 基于旧提示词修改
+
+  # 规则：用户上传新图片，风格不变
+  new_image:
+    description: "用户更换图片但想保持同一种风格"
+    trigger_phrases:
+      - "这张图也用{style}"
+      - "换一张图，还是{style}"
+      - "用这张再试一次"
+    inherit:
+      - "style_selection"
+      - "intensity"
+    reset:
+      - "original_image"
+      - "image_description"
+      - "final_prompt"
+
+# ============================================================
+# 歧义消解规则
+# ============================================================
+disambiguation:
+  # 当用户说的风格名匹配多个时
+  style_conflict:
+    strategy: "ask_user"
+    prompt_template: "您说的「{user_input}」可能指：{options}，请问是哪一个？"
+    example:
+      user_input: "梦核"
+      options: ["经典梦核 (Dreamcore)", "中式梦核 (Chinese Dreamcore)"]
+
+  # 当用户未上传图片但触发了风格转换
+  missing_image:
+    strategy: "ask_user"
+    prompt_template: "好的！请先上传一张图片，我来帮您转成{style}风格。"
+
+  # 当用户只说了模糊关键词
+  vague_intent:
+    strategy: "suggest"
+    prompt_template: "您是想把图片转换成某种「核」风格吗？目前支持以下10种风格：{style_list}，请选择一个。"

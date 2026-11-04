@@ -1,0 +1,46 @@
+name: Deploy
+on:
+  workflow_call:
+    inputs:
+      sha:
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: subscription-production
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: release
+      - name: Publish tested artifact
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.sha }}
+          DEPLOY_ROOT: ${{ vars.DEPLOY_ROOT }}
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$RELEASE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$SSH_HOST" =~ ^[a-zA-Z0-9.-]+$ ]]
+          [[ "$SSH_USER" =~ ^[a-zA-Z0-9_-]+$ ]]
+          DEPLOY_ROOT="${DEPLOY_ROOT:-/srv/ai-subscriptions}"
+          [[ "$DEPLOY_ROOT" =~ ^/[a-zA-Z0-9_/-]+$ ]]
+          [[ "$DEPLOY_ROOT/" != *"/../"* ]]
+          SSH_PORT="${SSH_PORT:-22}"
+          [[ "$SSH_PORT" =~ ^[0-9]+$ ]]
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          scp -O -o ConnectTimeout=20 -i ~/.ssh/deploy_key -P "$SSH_PORT" -o StrictHostKeyChecking=yes release.tar.gz "$SSH_USER@$SSH_HOST:$DEPLOY_ROOT/incoming/$RELEASE_SHA.tar.gz"
+          ssh -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=yes "$SSH_USER@$SSH_HOST" "bash '$DEPLOY_ROOT/deploy.sh' '$RELEASE_SHA' '$DEPLOY_ROOT/incoming/$RELEASE_SHA.tar.gz'"
