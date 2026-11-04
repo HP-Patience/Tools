@@ -1,46 +1,78 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400" role="img" aria-labelledby="title desc">
-  <title id="title">Tools · HP-Patience</title>
-  <desc id="desc">日常 AI 工具集合：图像与生成（4 tools）；服务与采集（3 tools）；应用与看板（4 tools）。</desc>
-  <style>
-    .sans { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-  </style>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400" role="img" aria-labelledby="hero-title hero-desc">
+  <title id="hero-title">Tools：11 个日常工具的索引仓库</title>
+  <desc id="hero-desc">左侧是仓库名与说明：11 个工具放在同一个目录，其中 9 个保留独立 Git 历史与远程。右侧是工具索引，逐条标出属于本仓还是独立仓。</desc>
 
-  <rect width="1200" height="400" rx="24" fill="#0e1116"/>
+  <rect width="1200" height="400" rx="22" fill="#0b0f14"/>
 
-  <g id="title-block" transform="translate(64 0)">
-    <text class="mono" x="0" y="92" font-size="18" fill="#8b93a1">HP-Patience / Tools</text>
-    <text class="sans" x="-4" y="182" font-size="92" font-weight="800" fill="#f4f1ea" letter-spacing="-2">Tools</text>
-    <text class="sans" x="0" y="234" font-size="30" font-weight="600" fill="#f4f1ea">日常 AI 工具集合</text>
-    <text class="sans" x="0" y="276" font-size="20" fill="#b7bdc8">11 个工具，9 个保留各自 Git 历史</text>
-    <text class="sans" x="0" y="306" font-size="20" fill="#b7bdc8">统一收在一个目录，按需取用</text>
-    <text class="mono" x="0" y="350" font-size="18" fill="#8b93a1">11 tools · 21 commits · 子仓独立</text>
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif">
+    <text x="56" y="60" font-size="17" letter-spacing="2" fill="#6b7482" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">TOOLS / INDEX</text>
+    <text x="54" y="166" font-size="84" font-weight="800" letter-spacing="-2" fill="#f4f1ea">Tools</text>
+    <text x="56" y="216" font-size="28" font-weight="600" fill="#e3ded4">日常 AI 工具索引</text>
+    <text x="56" y="258" font-size="19" fill="#9aa3b0">11 个工具放在一个目录里，</text>
+    <text x="56" y="286" font-size="19" fill="#9aa3b0">9 个保留自己的 Git 历史与远程。</text>
+    <text x="56" y="344" font-size="17" fill="#6b7482" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">11 tools · 9 sub-repos · 2 tracked</text>
   </g>
 
-  <g id="panels" class="mono" font-size="16">
-    <g transform="translate(520 56)">
-      <rect width="624" height="88" rx="12" fill="#161a21" stroke="#262c36"/>
-      <rect width="6" height="88" rx="3" fill="#ff7a59"/>
-      <text class="sans" x="26" y="40" font-size="22" font-weight="700" fill="#f4f1ea">图像与生成</text>
-      <text x="26" y="68" fill="#8b93a1">4 tools</text>
-<text x="168" y="38" fill="#d9dde4"><tspan fill="#ff7a59">●</tspan> GPT图像工坊   <tspan fill="#ff7a59">●</tspan> Dreamcore-Style-Transfer</text>
-<text x="168" y="68" fill="#d9dde4"><tspan fill="#5b6370">○</tspan> Penrose-Staircase   <tspan fill="#5b6370">○</tspan> LLM试金石</text>
+  <line x1="528" y1="48" x2="528" y2="360" stroke="#1a222c"/>
+
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'PingFang SC', 'Microsoft YaHei', monospace">
+    <text x="568" y="58" font-size="16" letter-spacing="2" fill="#6b7482">INDEX</text>
+    <line x1="568" y1="70" x2="1144" y2="70" stroke="#232b36"/>
+
+    <g font-size="16" fill="#5c6572">
+      <text x="568" y="100">01</text>
+      <text x="568" y="125">02</text>
+      <text x="568" y="150">03</text>
+      <text x="568" y="175">04</text>
+      <text x="568" y="200">05</text>
+      <text x="568" y="225">06</text>
+      <text x="568" y="250">07</text>
+      <text x="568" y="275">08</text>
+      <text x="568" y="300">09</text>
+      <text x="568" y="325">10</text>
+      <text x="568" y="350">11</text>
     </g>
-    <g transform="translate(520 160)">
-      <rect width="624" height="88" rx="12" fill="#161a21" stroke="#262c36"/>
-      <rect width="6" height="88" rx="3" fill="#3ec6b0"/>
-      <text class="sans" x="26" y="40" font-size="22" font-weight="700" fill="#f4f1ea">服务与采集</text>
-      <text x="26" y="68" fill="#8b93a1">3 tools</text>
-<text x="168" y="38" fill="#d9dde4"><tspan fill="#3ec6b0">●</tspan> tencent-server-seckill   <tspan fill="#3ec6b0">●</tspan> mailbox-reader</text>
-<text x="168" y="68" fill="#d9dde4"><tspan fill="#5b6370">○</tspan> QQBookExporter</text>
+
+    <g font-size="19.5" fill="#e8e5de">
+      <text x="606" y="100">GPT图像工坊</text>
+      <text x="606" y="125">LLM试金石</text>
+      <text x="606" y="150">Dreamcore-Style-Transfer</text>
+      <text x="606" y="175">Penrose-Staircase</text>
+      <text x="606" y="200">tencent-server-seckill</text>
+      <text x="606" y="225">mailbox-reader</text>
+      <text x="606" y="250">QQBookExporter</text>
+      <text x="606" y="275">danew_card_cdk</text>
+      <text x="606" y="300">ai-subscription-manager</text>
+      <text x="606" y="325">Taskleaf-Kanban</text>
+      <text x="606" y="350">knowledge-map</text>
     </g>
-    <g transform="translate(520 264)">
-      <rect width="624" height="88" rx="12" fill="#161a21" stroke="#262c36"/>
-      <rect width="6" height="88" rx="3" fill="#f2c14e"/>
-      <text class="sans" x="26" y="40" font-size="22" font-weight="700" fill="#f4f1ea">应用与看板</text>
-      <text x="26" y="68" fill="#8b93a1">4 tools</text>
-<text x="168" y="38" fill="#d9dde4"><tspan fill="#f2c14e">●</tspan> danew_card_cdk   <tspan fill="#f2c14e">●</tspan> ai-subscription-manager</text>
-<text x="168" y="68" fill="#d9dde4"><tspan fill="#5b6370">○</tspan> Taskleaf-Kanban   <tspan fill="#5b6370">○</tspan> knowledge-map</text>
+
+    <g font-size="18" text-anchor="end">
+      <text x="1144" y="100" fill="#e4af77">本仓</text>
+      <text x="1144" y="125" fill="#e4af77">本仓</text>
+      <text x="1144" y="150" fill="#5fd0bb">独立仓</text>
+      <text x="1144" y="175" fill="#5fd0bb">独立仓</text>
+      <text x="1144" y="200" fill="#5fd0bb">独立仓</text>
+      <text x="1144" y="225" fill="#5fd0bb">独立仓</text>
+      <text x="1144" y="250" fill="#5fd0bb">独立仓</text>
+      <text x="1144" y="275" fill="#5fd0bb">独立仓</text>
+      <text x="1144" y="300" fill="#5fd0bb">独立仓</text>
+      <text x="1144" y="325" fill="#5fd0bb">独立仓</text>
+      <text x="1144" y="350" fill="#5fd0bb">独立仓</text>
+    </g>
+
+    <g stroke="#161d27">
+      <line x1="568" y1="108" x2="1144" y2="108"/>
+      <line x1="568" y1="133" x2="1144" y2="133"/>
+      <line x1="568" y1="158" x2="1144" y2="158"/>
+      <line x1="568" y1="183" x2="1144" y2="183"/>
+      <line x1="568" y1="208" x2="1144" y2="208"/>
+      <line x1="568" y1="233" x2="1144" y2="233"/>
+      <line x1="568" y1="258" x2="1144" y2="258"/>
+      <line x1="568" y1="283" x2="1144" y2="283"/>
+      <line x1="568" y1="308" x2="1144" y2="308"/>
+      <line x1="568" y1="333" x2="1144" y2="333"/>
+      <line x1="568" y1="358" x2="1144" y2="358"/>
     </g>
   </g>
 </svg>
