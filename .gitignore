@@ -1,0 +1,19 @@
+# 各自独立的小工具仓库，保留自己的 .git 与远程，不并入本仓跟踪
+/Dreamcore-Style-Transfer/
+/tencent-server-seckill/
+/Taskleaf-Kanban/
+/QQBookExporter/
+/Penrose-Staircase/
+/mailbox-reader/
+/knowledge-map/
+/ai-subscription-manager/
+/danew_card_cdk/
+
+# 本地 agent 工作目录
+/.omo/
+
+# 构建产物与依赖
+node_modules/
+__pycache__/
+*.pyc
+dist/
