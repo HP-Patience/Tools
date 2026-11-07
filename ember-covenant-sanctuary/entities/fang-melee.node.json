@@ -1,0 +1,6 @@
+{
+  "name":"FangMelee", "script":"TelegraphedArea", "tags":["runtime","damaging"],
+  "visual":{"type":"image","texture":"fang_warning","width":120,"height":64},
+  "collider":{"body":"dynamic","immovable":true,"pivot":[0.5,0.5],"gravity":false},
+  "config":{"warningDuration":0.01,"activeDuration":0.18,"impactTexture":"fang_impact","damage":20,"sourceKind":"Shadow Fang strike"}
+}

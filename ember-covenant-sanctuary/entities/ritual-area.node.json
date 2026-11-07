@@ -1,0 +1,6 @@
+{
+  "name":"RitualArea", "script":"TelegraphedArea", "tags":["runtime","damaging","boss_hazard"],
+  "visual":{"type":"image","texture":"ritual_warning","width":150,"height":150},
+  "collider":{"body":"dynamic","immovable":true,"pivot":[0.5,0.5],"gravity":false},
+  "config":{"warningDuration":1.2,"activeDuration":0.45,"impactTexture":"shadow_flame","damage":22,"sourceKind":"Extinguishing Ritual","bossOwned":true}
+}

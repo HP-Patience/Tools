@@ -1,0 +1,6 @@
+{
+  "name":"ShadowDart", "script":"CombatProjectile", "tags":["runtime","projectile","hostile_projectile","damaging"],
+  "visual":{"type":"image","texture":"shadow_dart","width":18,"height":12},
+  "collider":{"body":"dynamic","pivot":[0.5,0.5],"gravity":false},
+  "config":{"ownerSide":"enemy","speed":360,"damage":15,"pierce":0,"sourceKind":"Shadow Dart"}
+}

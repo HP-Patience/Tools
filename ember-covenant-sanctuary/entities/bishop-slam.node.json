@@ -1,0 +1,6 @@
+{
+  "name":"BishopSlam", "script":"TelegraphedArea", "tags":["runtime","damaging","boss_hazard"],
+  "visual":{"type":"image","texture":"bishop_warning","width":180,"height":160},
+  "collider":{"body":"dynamic","immovable":true,"pivot":[0.5,0.5],"gravity":false},
+  "config":{"warningDuration":0.01,"activeDuration":0.25,"impactTexture":"bishop_impact","damage":25,"sourceKind":"Black Ember Staff Slam","bossOwned":true}
+}

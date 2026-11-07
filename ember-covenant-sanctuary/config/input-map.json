@@ -1,0 +1,12 @@
+{
+  "actions": {
+    "move_up":    { "keys": ["UP", "W"] },
+    "move_down":  { "keys": ["DOWN", "S"] },
+    "move_left":  { "keys": ["LEFT", "A"] },
+    "move_right": { "keys": ["RIGHT", "D"] },
+    "fire":       { "keys": ["SPACE", "J"] },
+    "skill":      { "keys": ["Q", "K"] },
+    "interact":   { "keys": ["E", "ENTER"] },
+    "pause":      { "keys": ["ESC"] }
+  }
+}

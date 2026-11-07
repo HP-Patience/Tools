@@ -1,0 +1,1 @@
+{"name":"EntryWarning","script":"TimedImageVfxModule","tags":["runtime","vfx"],"visual":{"type":"image","texture":"entry_warning","width":260,"height":110},"config":{"texture":"entry_warning","alphaStart":0.9,"alphaEnd":0,"scaleStart":0.7,"scaleEnd":1.1,"depth":45,"kind":"entry-warning"}}

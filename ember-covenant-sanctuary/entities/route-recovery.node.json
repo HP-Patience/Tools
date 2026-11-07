@@ -1,0 +1,5 @@
+{
+  "name":"RecoveryRoute", "script":"InteractionZone", "tags":["runtime","interaction"],
+  "visual":{"type":"image","texture":"route_recovery","width":116,"height":116},
+  "collider":{"body":"static","pivot":[0.5,0.5]}, "config":{"interactionId":"route-recovery"}
+}

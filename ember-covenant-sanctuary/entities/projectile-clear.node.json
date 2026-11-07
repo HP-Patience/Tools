@@ -1,0 +1,1 @@
+{"name":"ProjectileClear","script":"TimedImageVfxModule","tags":["runtime","vfx"],"visual":{"type":"image","texture":"pureflame_pulse","width":34,"height":34},"config":{"texture":"pureflame_pulse","ttl":0.22,"alphaStart":0.9,"alphaEnd":0,"scaleStart":0.35,"scaleEnd":1,"kind":"projectile-clear"}}

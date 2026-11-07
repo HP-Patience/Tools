@@ -1,0 +1,1413 @@
+{
+  "ember_keeper": {
+    "type": "atlas",
+    "path": "characters/ember_keeper.png",
+    "sprites": {
+      "attack_0": {
+        "bbox": [
+          62,
+          18,
+          226,
+          199
+        ]
+      },
+      "attack_1": {
+        "bbox": [
+          384,
+          18,
+          285,
+          199
+        ]
+      },
+      "attack_2": {
+        "bbox": [
+          762,
+          18,
+          233,
+          199
+        ]
+      },
+      "attack_3": {
+        "bbox": [
+          1118,
+          18,
+          226,
+          199
+        ]
+      },
+      "death_0": {
+        "bbox": [
+          1495,
+          21,
+          176,
+          194
+        ]
+      },
+      "death_1": {
+        "bbox": [
+          89,
+          279,
+          171,
+          153
+        ]
+      },
+      "death_2": {
+        "bbox": [
+          402,
+          309,
+          250,
+          94
+        ]
+      },
+      "death_3": {
+        "bbox": [
+          751,
+          315,
+          255,
+          82
+        ]
+      },
+      "idle_0": {
+        "bbox": [
+          1099,
+          256,
+          264,
+          200
+        ]
+      },
+      "idle_1": {
+        "bbox": [
+          1463,
+          256,
+          240,
+          200
+        ]
+      },
+      "idle_2": {
+        "bbox": [
+          43,
+          494,
+          264,
+          200
+        ]
+      },
+      "idle_3": {
+        "bbox": [
+          404,
+          494,
+          246,
+          200
+        ]
+      },
+      "run_0": {
+        "bbox": [
+          744,
+          499,
+          270,
+          189
+        ]
+      },
+      "run_1": {
+        "bbox": [
+          1108,
+          502,
+          246,
+          183
+        ]
+      },
+      "run_2": {
+        "bbox": [
+          1448,
+          499,
+          270,
+          189
+        ]
+      },
+      "run_3": {
+        "bbox": [
+          49,
+          737,
+          252,
+          189
+        ]
+      },
+      "skill_0": {
+        "bbox": [
+          446,
+          734,
+          161,
+          195
+        ]
+      },
+      "skill_1": {
+        "bbox": [
+          770,
+          727,
+          217,
+          209
+        ]
+      },
+      "skill_2": {
+        "bbox": [
+          1056,
+          714,
+          350,
+          236
+        ]
+      },
+      "skill_3": {
+        "bbox": [
+          1506,
+          734,
+          154,
+          195
+        ]
+      }
+    },
+    "pivot": [
+      0.5,
+      1
+    ]
+  },
+  "shadow_fang": {
+    "type": "atlas",
+    "path": "characters/shadow_fang.png",
+    "sprites": {
+      "attack_0": {
+        "bbox": [
+          18,
+          21,
+          288,
+          135
+        ]
+      },
+      "attack_1": {
+        "bbox": [
+          347,
+          24,
+          282,
+          129
+        ]
+      },
+      "attack_2": {
+        "bbox": [
+          652,
+          15,
+          324,
+          147
+        ]
+      },
+      "attack_3": {
+        "bbox": [
+          1002,
+          35,
+          276,
+          106
+        ]
+      },
+      "death_0": {
+        "bbox": [
+          60,
+          179,
+          204,
+          177
+        ]
+      },
+      "death_1": {
+        "bbox": [
+          383,
+          197,
+          210,
+          141
+        ]
+      },
+      "death_2": {
+        "bbox": [
+          724,
+          205,
+          180,
+          124
+        ]
+      },
+      "death_3": {
+        "bbox": [
+          1065,
+          244,
+          150,
+          47
+        ]
+      },
+      "idle_0": {
+        "bbox": [
+          23,
+          380,
+          277,
+          133
+        ]
+      },
+      "idle_1": {
+        "bbox": [
+          346,
+          379,
+          283,
+          134
+        ]
+      },
+      "idle_2": {
+        "bbox": [
+          675,
+          382,
+          277,
+          128
+        ]
+      },
+      "idle_3": {
+        "bbox": [
+          1001,
+          379,
+          277,
+          134
+        ]
+      },
+      "run_0": {
+        "bbox": [
+          17,
+          555,
+          289,
+          140
+        ]
+      },
+      "run_1": {
+        "bbox": [
+          343,
+          552,
+          289,
+          146
+        ]
+      },
+      "run_2": {
+        "bbox": [
+          669,
+          555,
+          289,
+          140
+        ]
+      },
+      "run_3": {
+        "bbox": [
+          983,
+          552,
+          313,
+          146
+        ]
+      }
+    },
+    "pivot": [
+      0.5,
+      1
+    ]
+  },
+  "shadow_acolyte": {
+    "type": "atlas",
+    "path": "characters/shadow_acolyte.png",
+    "sprites": {
+      "death_0": {
+        "bbox": [
+          19,
+          73,
+          155,
+          163
+        ]
+      },
+      "death_1": {
+        "bbox": [
+          216,
+          91,
+          154,
+          126
+        ]
+      },
+      "death_2": {
+        "bbox": [
+          393,
+          103,
+          192,
+          102
+        ]
+      },
+      "death_3": {
+        "bbox": [
+          617,
+          115,
+          136,
+          78
+        ]
+      },
+      "idle_0": {
+        "bbox": [
+          35,
+          314,
+          123,
+          302
+        ]
+      },
+      "idle_1": {
+        "bbox": [
+          225,
+          314,
+          136,
+          302
+        ]
+      },
+      "idle_2": {
+        "bbox": [
+          424,
+          314,
+          129,
+          302
+        ]
+      },
+      "idle_3": {
+        "bbox": [
+          620,
+          314,
+          129,
+          302
+        ]
+      },
+      "move_0": {
+        "bbox": [
+          5,
+          622,
+          184,
+          309
+        ]
+      },
+      "move_1": {
+        "bbox": [
+          201,
+          622,
+          184,
+          309
+        ]
+      },
+      "move_2": {
+        "bbox": [
+          400,
+          622,
+          178,
+          309
+        ]
+      },
+      "move_3": {
+        "bbox": [
+          593,
+          622,
+          184,
+          309
+        ]
+      },
+      "ranged-attack_0": {
+        "bbox": [
+          0,
+          974,
+          194,
+          226
+        ]
+      },
+      "ranged-attack_1": {
+        "bbox": [
+          200,
+          970,
+          186,
+          234
+        ]
+      },
+      "ranged-attack_2": {
+        "bbox": [
+          392,
+          974,
+          194,
+          226
+        ]
+      },
+      "ranged-attack_3": {
+        "bbox": [
+          588,
+          974,
+          194,
+          226
+        ]
+      }
+    },
+    "pivot": [
+      0.5,
+      1
+    ]
+  },
+  "dusk_deacon": {
+    "type": "atlas",
+    "path": "characters/dusk_deacon.png",
+    "sprites": {
+      "death_0": {
+        "bbox": [
+          134,
+          81,
+          202,
+          245
+        ]
+      },
+      "death_1": {
+        "bbox": [
+          564,
+          91,
+          288,
+          225
+        ]
+      },
+      "death_2": {
+        "bbox": [
+          1042,
+          99,
+          278,
+          209
+        ]
+      },
+      "death_3": {
+        "bbox": [
+          1542,
+          79,
+          225,
+          249
+        ]
+      },
+      "idle_0": {
+        "bbox": [
+          2015,
+          3,
+          225,
+          401
+        ]
+      },
+      "idle_1": {
+        "bbox": [
+          141,
+          409,
+          189,
+          407
+        ]
+      },
+      "idle_2": {
+        "bbox": [
+          599,
+          409,
+          219,
+          407
+        ]
+      },
+      "idle_3": {
+        "bbox": [
+          1069,
+          412,
+          224,
+          401
+        ]
+      },
+      "melee-attack_0": {
+        "bbox": [
+          1530,
+          443,
+          249,
+          339
+        ]
+      },
+      "melee-attack_1": {
+        "bbox": [
+          1950,
+          436,
+          355,
+          352
+        ]
+      },
+      "melee-attack_2": {
+        "bbox": [
+          14,
+          855,
+          443,
+          332
+        ]
+      },
+      "melee-attack_3": {
+        "bbox": [
+          608,
+          848,
+          201,
+          346
+        ]
+      },
+      "move_0": {
+        "bbox": [
+          1063,
+          824,
+          237,
+          395
+        ]
+      },
+      "move_1": {
+        "bbox": [
+          1554,
+          824,
+          201,
+          395
+        ]
+      },
+      "move_2": {
+        "bbox": [
+          2006,
+          827,
+          242,
+          389
+        ]
+      },
+      "move_3": {
+        "bbox": [
+          105,
+          1236,
+          261,
+          389
+        ]
+      },
+      "ranged-attack_0": {
+        "bbox": [
+          552,
+          1279,
+          313,
+          303
+        ]
+      },
+      "ranged-attack_1": {
+        "bbox": [
+          1012,
+          1279,
+          339,
+          303
+        ]
+      },
+      "ranged-attack_2": {
+        "bbox": [
+          1419,
+          1282,
+          471,
+          297
+        ]
+      },
+      "ranged-attack_3": {
+        "bbox": [
+          2030,
+          1275,
+          195,
+          310
+        ]
+      }
+    },
+    "pivot": [
+      0.5,
+      1
+    ]
+  },
+  "fallen_bishop": {
+    "type": "atlas",
+    "path": "characters/fallen_bishop.png",
+    "sprites": {
+      "death_0": {
+        "bbox": [
+          181,
+          72,
+          303,
+          331
+        ]
+      },
+      "death_1": {
+        "bbox": [
+          828,
+          115,
+          346,
+          244
+        ]
+      },
+      "death_2": {
+        "bbox": [
+          1502,
+          137,
+          334,
+          200
+        ]
+      },
+      "death_3": {
+        "bbox": [
+          2194,
+          50,
+          285,
+          375
+        ]
+      },
+      "idle_0": {
+        "bbox": [
+          2846,
+          52,
+          317,
+          371
+        ]
+      },
+      "idle_1": {
+        "bbox": [
+          3522,
+          52,
+          302,
+          371
+        ]
+      },
+      "idle_2": {
+        "bbox": [
+          184,
+          529,
+          297,
+          371
+        ]
+      },
+      "idle_3": {
+        "bbox": [
+          847,
+          532,
+          307,
+          365
+        ]
+      },
+      "melee-attack_0": {
+        "bbox": [
+          1469,
+          482,
+          400,
+          464
+        ]
+      },
+      "melee-attack_1": {
+        "bbox": [
+          2149,
+          510,
+          376,
+          408
+        ]
+      },
+      "melee-attack_2": {
+        "bbox": [
+          2785,
+          557,
+          440,
+          315
+        ]
+      },
+      "melee-attack_3": {
+        "bbox": [
+          3545,
+          561,
+          256,
+          306
+        ]
+      },
+      "move_0": {
+        "bbox": [
+          154,
+          1012,
+          357,
+          359
+        ]
+      },
+      "move_1": {
+        "bbox": [
+          827,
+          1015,
+          347,
+          353
+        ]
+      },
+      "move_2": {
+        "bbox": [
+          1495,
+          1018,
+          347,
+          347
+        ]
+      },
+      "move_3": {
+        "bbox": [
+          2146,
+          1018,
+          382,
+          347
+        ]
+      },
+      "phase-transition_0": {
+        "bbox": [
+          2865,
+          1007,
+          279,
+          368
+        ]
+      },
+      "phase-transition_1": {
+        "bbox": [
+          3515,
+          1013,
+          316,
+          356
+        ]
+      },
+      "phase-transition_2": {
+        "bbox": [
+          159,
+          1453,
+          347,
+          431
+        ]
+      },
+      "phase-transition_3": {
+        "bbox": [
+          834,
+          1481,
+          334,
+          374
+        ]
+      },
+      "ranged-attack_0": {
+        "bbox": [
+          1480,
+          1509,
+          378,
+          319
+        ]
+      },
+      "ranged-attack_1": {
+        "bbox": [
+          2121,
+          1506,
+          432,
+          324
+        ]
+      },
+      "ranged-attack_2": {
+        "bbox": [
+          2672,
+          1495,
+          666,
+          346
+        ]
+      },
+      "ranged-attack_3": {
+        "bbox": [
+          3529,
+          1496,
+          288,
+          344
+        ]
+      },
+      "summon_0": {
+        "bbox": [
+          135,
+          1973,
+          396,
+          345
+        ]
+      },
+      "summon_1": {
+        "bbox": [
+          704,
+          1913,
+          594,
+          464
+        ]
+      },
+      "summon_2": {
+        "bbox": [
+          1366,
+          1908,
+          605,
+          475
+        ]
+      },
+      "summon_3": {
+        "bbox": [
+          2166,
+          1951,
+          341,
+          389
+        ]
+      }
+    },
+    "pivot": [
+      0.5,
+      1
+    ]
+  },
+  "ember_bolt": {
+    "type": "image",
+    "path": "projectiles/ember_bolt.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "shadow_dart": {
+    "type": "image",
+    "path": "projectiles/shadow_dart.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "shadow_spear": {
+    "type": "image",
+    "path": "projectiles/shadow_spear.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "fang_warning": {
+    "type": "image",
+    "path": "vfx/fang_warning.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "fang_impact": {
+    "type": "image",
+    "path": "vfx/fang_impact.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "deacon_warning": {
+    "type": "image",
+    "path": "vfx/deacon_warning.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "deacon_impact": {
+    "type": "image",
+    "path": "vfx/deacon_impact.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "bishop_warning": {
+    "type": "image",
+    "path": "vfx/bishop_warning.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "bishop_impact": {
+    "type": "image",
+    "path": "vfx/bishop_impact.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "ritual_warning": {
+    "type": "image",
+    "path": "vfx/ritual_warning.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "shadow_flame": {
+    "type": "image",
+    "path": "vfx/shadow_flame.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "pureflame_pulse": {
+    "type": "image",
+    "path": "vfx/pureflame_pulse.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "hit_spark": {
+    "type": "image",
+    "path": "vfx/hit_spark.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "ash_burst": {
+    "type": "image",
+    "path": "vfx/ash_burst.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "last_flame": {
+    "type": "image",
+    "path": "vfx/last_flame.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "exit_marker": {
+    "type": "image",
+    "path": "markers/exit_marker.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "route_recovery": {
+    "type": "image",
+    "path": "markers/route_recovery.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "route_elite": {
+    "type": "image",
+    "path": "markers/route_elite.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "entry_warning": {
+    "type": "image",
+    "path": "markers/entry_warning.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "extinguished_altar": {
+    "type": "image",
+    "path": "props/extinguished_altar.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "stone_pillar": {
+    "type": "image",
+    "path": "props/stone_pillar.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "broken_pew": {
+    "type": "image",
+    "path": "props/broken_pew.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "gravestone": {
+    "type": "image",
+    "path": "props/gravestone.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "collapsed_wall_h": {
+    "type": "image",
+    "path": "props/collapsed_wall_h.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "collapsed_wall_v": {
+    "type": "image",
+    "path": "props/collapsed_wall_v.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "cold_candelabrum": {
+    "type": "image",
+    "path": "props/cold_candelabrum.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "old_drapery": {
+    "type": "image",
+    "path": "props/old_drapery.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "wall_relief": {
+    "type": "image",
+    "path": "props/wall_relief.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "ash_scatter": {
+    "type": "image",
+    "path": "props/ash_scatter.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "thin_smoke": {
+    "type": "image",
+    "path": "props/thin_smoke.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "victory_brazier": {
+    "type": "image",
+    "path": "props/victory_brazier.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "hud_player_icon": {
+    "type": "image",
+    "path": "ui/hud_player_icon.png"
+  },
+  "hud_player_slot": {
+    "type": "image",
+    "path": "ui/hud_player_slot.png",
+    "landmark": {
+      "bbox": {
+        "fill-slot": {
+          "x": 38,
+          "y": 48,
+          "w": 581,
+          "h": 120
+        }
+      }
+    }
+  },
+  "hud_player_fill": {
+    "type": "image",
+    "path": "ui/hud_player_fill.png"
+  },
+  "hud_boss_icon": {
+    "type": "image",
+    "path": "ui/hud_boss_icon.png"
+  },
+  "hud_boss_slot": {
+    "type": "image",
+    "path": "ui/hud_boss_slot.png",
+    "landmark": {
+      "bbox": {
+        "fill-slot": {
+          "x": 57,
+          "y": 49,
+          "w": 866,
+          "h": 123
+        }
+      }
+    }
+  },
+  "hud_boss_fill": {
+    "type": "image",
+    "path": "ui/hud_boss_fill.png"
+  },
+  "ui_panel": {
+    "type": "image",
+    "path": "ui/ui_panel.png"
+  },
+  "ui_button_idle": {
+    "type": "image",
+    "path": "ui/ui_button_idle.png"
+  },
+  "ui_button_hover": {
+    "type": "image",
+    "path": "ui/ui_button_hover.png"
+  },
+  "ui_sigil_card": {
+    "type": "image",
+    "path": "ui/ui_sigil_card.png"
+  },
+  "sigil_piercing_ember": {
+    "type": "image",
+    "path": "ui/sigil_piercing_ember.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "sigil_ash_crown": {
+    "type": "image",
+    "path": "ui/sigil_ash_crown.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "sigil_sacred_nail": {
+    "type": "image",
+    "path": "ui/sigil_sacred_nail.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "sigil_light_ember": {
+    "type": "image",
+    "path": "ui/sigil_light_ember.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "sigil_rekindle": {
+    "type": "image",
+    "path": "ui/sigil_rekindle.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "sigil_wide_radiance": {
+    "type": "image",
+    "path": "ui/sigil_wide_radiance.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "sigil_close_flame": {
+    "type": "image",
+    "path": "ui/sigil_close_flame.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "sigil_last_candle": {
+    "type": "image",
+    "path": "ui/sigil_last_candle.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "sigil_blood_prayer": {
+    "type": "image",
+    "path": "ui/sigil_blood_prayer.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "pureflame_icon": {
+    "type": "image",
+    "path": "ui/pureflame_icon.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "aim_reticle": {
+    "type": "image",
+    "path": "ui/aim_reticle.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "aim_reticle_close": {
+    "type": "image",
+    "path": "ui/aim_reticle_close.png",
+    "pivot": [
+      0.5,
+      0.5
+    ]
+  },
+  "room_boundary_skirt": {
+    "type": "image",
+    "path": "tilesets/room_boundary_skirt.png",
+    "pivot": [
+      0.5,
+      1
+    ]
+  },
+  "sanctuary_tiles": {
+    "type": "tileset",
+    "path": "tilesets/sanctuary_tiles.png",
+    "tileSize": 32,
+    "tiles": {
+      "floor_stone": {
+        "index": 0,
+        "collision": false
+      },
+      "floor_ember": {
+        "index": 1,
+        "collision": false
+      },
+      "wall_face": {
+        "index": 2,
+        "collision": true
+      },
+      "wall_top": {
+        "index": 3,
+        "collision": false
+      },
+      "door_face": {
+        "index": 4,
+        "collision": true
+      },
+      "door_top": {
+        "index": 5,
+        "collision": false
+      },
+      "altar_face": {
+        "index": 6,
+        "collision": true
+      },
+      "altar_top": {
+        "index": 7,
+        "collision": false
+      },
+      "void": {
+        "index": 8,
+        "collision": true
+      },
+      "spawn_player": {
+        "index": 9,
+        "collision": false,
+        "properties": {
+          "role": "player_spawn"
+        }
+      },
+      "spawn_enemy": {
+        "index": 10,
+        "collision": false,
+        "properties": {
+          "role": "enemy_spawn"
+        }
+      },
+      "exit_floor": {
+        "index": 11,
+        "collision": false,
+        "properties": {
+          "role": "exit"
+        }
+      },
+      "ritual_route": {
+        "index": 12,
+        "collision": false,
+        "properties": {
+          "role": "ritual_route"
+        }
+      },
+      "route_recovery_floor": {
+        "index": 13,
+        "collision": false,
+        "properties": {
+          "role": "route_recovery"
+        }
+      },
+      "route_elite_floor": {
+        "index": 14,
+        "collision": false,
+        "properties": {
+          "role": "route_elite"
+        }
+      }
+    },
+    "categories": {
+      "floor": [
+        "floor_stone",
+        "floor_ember"
+      ],
+      "wall-pair": [
+        "wall_top",
+        "wall_face"
+      ],
+      "door-pair": [
+        "door_top",
+        "door_face"
+      ],
+      "altar-pair": [
+        "altar_top",
+        "altar_face"
+      ],
+      "markers": [
+        "spawn_player",
+        "spawn_enemy",
+        "exit_floor",
+        "ritual_route",
+        "route_recovery_floor",
+        "route_elite_floor"
+      ]
+    },
+    "stamps": {
+      "wall": {
+        "width": 1,
+        "height": 2,
+        "data": [
+          [
+            "wall_top"
+          ],
+          [
+            "wall_face"
+          ]
+        ]
+      },
+      "door": {
+        "width": 1,
+        "height": 2,
+        "data": [
+          [
+            "door_top"
+          ],
+          [
+            "door_face"
+          ]
+        ]
+      },
+      "altar": {
+        "width": 1,
+        "height": 2,
+        "data": [
+          [
+            "altar_top"
+          ],
+          [
+            "altar_face"
+          ]
+        ]
+      }
+    }
+  }
+}

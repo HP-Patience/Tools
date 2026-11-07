@@ -1,0 +1,1 @@
+{"name":"AshBurst","script":"TimedImageVfxModule","tags":["runtime","vfx"],"visual":{"type":"image","texture":"ash_burst","width":72,"height":72},"config":{"texture":"ash_burst","ttl":0.55,"velocityY":-28,"alphaStart":0.85,"alphaEnd":0,"scaleStart":0.6,"scaleEnd":1.3,"depth":35,"kind":"ash"}}

@@ -1,0 +1,12 @@
+{
+  "name": "ShadowAcolyte", "script": "ShadowAcolyte", "tags": ["runtime","enemy","ordinary_enemy"],
+  "visual": { "type": "atlas", "texture": "shadow_acolyte", "frame": "idle_0", "width": 48, "height": 60 },
+  "collider": { "shape": "circle", "radius": 24, "body": "dynamic", "host": "separate", "pivot": [0.5,0.5], "gravity": false, "worldBounds": true },
+  "animations": { "default": "idle", "clips": {
+    "idle": { "frames": ["idle_0","idle_1","idle_2","idle_3"], "frameRate": 6 },
+    "move": { "frames": ["move_0","move_1","move_2","move_3"], "frameRate": 9 },
+    "ranged-attack": { "frames": ["ranged-attack_0","ranged-attack_1","ranged-attack_2","ranged-attack_3"], "frameRate": 8, "loop": false },
+    "death": { "frames": ["death_0","death_1","death_2","death_3"], "frameRate": 6, "loop": false }
+  }},
+  "config": { "kind":"shadow_acolyte", "hp":40, "speed":105, "desiredRange":300, "farTolerance":35, "nearTolerance":55, "chargeDuration":0.7, "releaseDuration":0.02, "recoveryDuration":1.1, "minimumAttackInterval":1.8, "deathDuration":0.7, "moveClip":"move" }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "DuskDeacon", "script": "DuskDeacon", "tags": ["runtime","enemy","elite"],
+  "visual": { "type": "atlas", "texture": "dusk_deacon", "frame": "idle_0", "width": 64, "height": 80 },
+  "collider": { "shape": "circle", "radius": 32, "body": "dynamic", "host": "separate", "pivot": [0.5,0.5], "gravity": false, "worldBounds": true },
+  "animations": { "default": "idle", "clips": {
+    "idle": { "frames": ["idle_0","idle_1","idle_2","idle_3"], "frameRate": 6 },
+    "move": { "frames": ["move_0","move_1","move_2","move_3"], "frameRate": 8 },
+    "melee-attack": { "frames": ["melee-attack_0","melee-attack_1","melee-attack_2","melee-attack_3"], "frameRate": 8, "loop": false },
+    "ranged-attack": { "frames": ["ranged-attack_0","ranged-attack_1","ranged-attack_2","ranged-attack_3"], "frameRate": 8, "loop": false },
+    "death": { "frames": ["death_0","death_1","death_2","death_3"], "frameRate": 5, "loop": false }
+  }},
+  "config": { "kind":"dusk_deacon", "hp":220, "speed":92, "attackRange":180, "approachPadding":45, "meleeCharge":0.85, "meleeActive":0.22, "meleeRecovery":0.95, "meleeAreaOffset":64, "rangedCharge":0.8, "rangedRecovery":1.0, "rangedFanAngles":[-0.3,0,0.3], "deathDuration":1.0, "moveClip":"move" }
+}

@@ -1,0 +1,5 @@
+{"file": ".vibegame/spec/design/index.md", "reason": "Design theory index"}
+{"file": ".vibegame/spec/design/theories/mechanism-design.md", "reason": "用于设计肉鸽局内成长的真实取舍与奖励选择"}
+{"file": ".vibegame/spec/design/theories/challenge-design.md", "reason": "用于平衡随机房间中的学习、技巧与难度递进"}
+{"file": ".vibegame/spec/design/theories/feedback-loops.md", "reason": "用于控制局内构筑正反馈与后段挑战强度"}
+{"file": ".vibegame/spec/design/theories/game-fairness.md", "reason": "用于约束随机性、攻击预警和失败归因"}

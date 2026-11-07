@@ -1,0 +1,1 @@
+{"name":"LastFlame","script":"TimedImageVfxModule","tags":["runtime","vfx"],"visual":{"type":"image","texture":"last_flame","width":96,"height":128},"config":{"texture":"last_flame","velocityY":-26,"alphaStart":1,"alphaEnd":0,"scaleStart":0.5,"scaleEnd":1.25,"depth":60,"kind":"last-flame"}}

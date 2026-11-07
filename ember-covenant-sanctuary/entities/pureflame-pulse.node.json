@@ -1,0 +1,1 @@
+{"name":"PureflamePulse","script":"TimedImageVfxModule","tags":["runtime","vfx"],"visual":{"type":"image","texture":"pureflame_pulse","width":300,"height":300},"config":{"texture":"pureflame_pulse","ttl":0.35,"alphaStart":0.8,"alphaEnd":0,"scaleStart":0.25,"scaleEnd":1,"depth":30,"kind":"pulse"}}

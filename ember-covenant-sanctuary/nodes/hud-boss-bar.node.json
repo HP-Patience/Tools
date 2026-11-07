@@ -1,0 +1,16 @@
+{
+  "name": "BossBar",
+  "script": "StatusBarModule",
+  "tags": ["boss_bar", "statusBar"],
+  "config": {
+    "anchorX": 0.5,
+    "anchorY": 0.9444444444,
+    "slot": "hud_boss_slot",
+    "bar": "hud_boss_fill",
+    "icon": "hud_boss_icon",
+    "slotSize": { "width": 520, "height": 30 },
+    "bbox": { "x": 57, "y": 49, "w": 866, "h": 123 },
+    "leftRate": 1,
+    "depth": 100
+  }
+}

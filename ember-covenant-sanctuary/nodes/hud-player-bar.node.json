@@ -1,0 +1,16 @@
+{
+  "name": "PlayerBar",
+  "script": "StatusBarModule",
+  "tags": ["player_bar", "statusBar"],
+  "config": {
+    "anchorX": 0.1359375,
+    "anchorY": 0.0583333333,
+    "slot": "hud_player_slot",
+    "bar": "hud_player_fill",
+    "icon": "hud_player_icon",
+    "slotSize": { "width": 260, "height": 28 },
+    "bbox": { "x": 38, "y": 48, "w": 581, "h": 120 },
+    "leftRate": 1,
+    "depth": 100
+  }
+}

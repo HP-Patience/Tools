@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="./assets/readme/hero.svg" width="100%" alt="Tools：11 个日常工具放在一个仓库，克隆一次即可全部取到">
+  <img src="./assets/readme/hero.svg" width="100%" alt="Tools：12 个日常工具放在一个仓库，克隆一次即可全部取到">
 </p>
 
 <p align="center">
-  <strong>把日常在用的 11 个小工具收进一个仓库，每个工具保留自己的 README 与运行方式。</strong><br>
+  <strong>把日常在用的 12 个小工具收进一个仓库，每个工具保留自己的 README 与运行方式。</strong><br>
   形态从静态页到 Go 后端各不相同，没有共用代码层，因此共享位置而不共享依赖。
 </p>
 
@@ -11,12 +11,12 @@
   <a href="https://github.com/wilsoncslearn/AI_Tools"><img src="https://img.shields.io/github/stars/wilsoncslearn/AI_Tools?style=flat-square&labelColor=0b0f14&color=5fd0bb" alt="GitHub stars"></a>
   <a href="https://github.com/wilsoncslearn/AI_Tools/commits/main"><img src="https://img.shields.io/github/last-commit/wilsoncslearn/AI_Tools?style=flat-square&labelColor=0b0f14&color=5fd0bb" alt="最近一次提交"></a>
   <a href="https://github.com/wilsoncslearn/AI_Tools"><img src="https://img.shields.io/github/languages/top/wilsoncslearn/AI_Tools?style=flat-square&labelColor=0b0f14&color=e4af77" alt="主要语言"></a>
-  <a href="#工具清单"><img src="https://img.shields.io/badge/tools-11-e4af77?style=flat-square&labelColor=0b0f14" alt="工具数量 11"></a>
+  <a href="#工具清单"><img src="https://img.shields.io/badge/tools-12-e4af77?style=flat-square&labelColor=0b0f14" alt="工具数量 12"></a>
 </p>
 
 ## 这是什么
 
-日常在用的小工具合集。11 个工具的形态各不相同——静态页、Python 脚本、Node 服务、Go 后端、TypeScript 应用——没有可以共用的代码层，所以不合并依赖，只归拢位置。
+日常在用的小工具合集。12 个工具的形态各不相同——静态页、Python 脚本、Node 服务、Go 后端、TypeScript 应用，外加一个浏览器游戏原型——没有可以共用的代码层，所以不合并依赖，只归拢位置。
 
 放在一起的理由只有一个：**要找的时候知道去哪儿找**。
 
@@ -35,6 +35,7 @@
 | [`ai-subscription-manager`](./ai-subscription-manager/) | AI 订阅客户、续费与利润记录，到期邮件提醒 · React + FastAPI + SQLite |
 | [`danew_card_cdk`](./danew_card_cdk/) | CDK 卡密兑换与自动开通 · Go + Vue |
 | [`knowledge-map`](./knowledge-map/) | Agent 整理、浏览器只读回看的个人知识地图 · TypeScript + Vite |
+| [`ember-covenant-sanctuary`](./ember-covenant-sanctuary/) | 像素风俯视角动作肉鸽原型《烬契圣堂》，七重圣堂 + 双面契印构筑 · Phaser 3 + VibeGame |
 
 ## 目录结构
 
@@ -51,6 +52,7 @@ Tools/
 ├── ai-subscription-manager/
 ├── danew_card_cdk/
 ├── knowledge-map/
+├── ember-covenant-sanctuary/
 ├── assets/readme/
 └── README.md
 ```
@@ -88,7 +90,7 @@ python app.py
 
 ## 说明
 
-- 11 个工具共用一个仓库，但依赖与运行环境彼此独立，建议每个 Python 工具各自建虚拟环境。
+- 12 个项目共用一个仓库，但依赖与运行环境彼此独立，建议每个 Python 工具各自建虚拟环境。
 - 各工具的 `.env`、`data/`、`output/` 等由目录内的 `.gitignore` 排除，不随仓库分发。
 - 运行环境要求以各工具自己的 `README.md` 为准，例如 `knowledge-map` 与 `Taskleaf-Kanban` 需要 Node.js 24。
 - 本仓在 `wilsoncslearn/AI_Tools` 与 `HP-Patience/Tools` 各有一份，内容一致，克隆任一地址均可。

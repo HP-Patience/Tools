@@ -1,0 +1,5 @@
+{
+  "name":"Exit", "script":"InteractionZone", "tags":["runtime","interaction"],
+  "visual":{"type":"image","texture":"exit_marker","width":76,"height":76},
+  "collider":{"body":"static","pivot":[0.5,0.5]}, "config":{"interactionId":"exit"}
+}

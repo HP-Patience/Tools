@@ -1,0 +1,13 @@
+{
+  "sigils": [
+    { "id": "piercing_ember", "label": "贯烬契", "category": "projectile", "iconKey": "sigil_piercing_ember", "benefit": "余烬弹额外穿透 1 名敌人。", "cost": "每发伤害 x0.8。", "effects": { "pierceAdd": 1, "shotDamageMultiplier": 0.8 } },
+    { "id": "ash_crown", "label": "灰冠契", "category": "projectile", "iconKey": "sigil_ash_crown", "benefit": "每次射击发出三枚扇形余烬弹。", "cost": "每枚从基础伤害 45% 起算，射速 x0.8。", "effects": { "fanAngles": [-0.22, 0, 0.22], "shotDamageMultiplier": 0.45, "shotsPerSecondMultiplier": 0.8 } },
+    { "id": "sacred_nail", "label": "圣钉契", "category": "projectile", "iconKey": "sigil_sacred_nail", "benefit": "射击伤害 x2。", "cost": "射速 x0.6，弹速 x0.75。", "effects": { "shotDamageMultiplier": 2, "shotsPerSecondMultiplier": 0.6, "projectileSpeedMultiplier": 0.75 } },
+    { "id": "light_ember", "label": "轻烬契", "category": "survival", "iconKey": "sigil_light_ember", "benefit": "移动速度 x1.2。", "cost": "最大生命 -20，并将当前生命限制到新上限。", "effects": { "movementSpeedMultiplier": 1.2, "maxHpAdd": -20 } },
+    { "id": "rekindle", "label": "回火契", "category": "survival", "iconKey": "sigil_rekindle", "benefit": "每次战斗房清场恢复 12 生命。", "cost": "射击伤害 x0.85。", "effects": { "clearHeal": 12, "shotDamageMultiplier": 0.85 } },
+    { "id": "wide_radiance", "label": "广照契", "category": "survival", "iconKey": "sigil_wide_radiance", "benefit": "净焰脉冲半径 x1.6。", "cost": "技能冷却变为 12 秒。", "effects": { "pulseRadiusMultiplier": 1.6, "pulseCooldownSet": 12 } },
+    { "id": "close_flame", "label": "贴焰契", "category": "risk", "iconKey": "sigil_close_flame", "benefit": "近距离命中伤害 x1.5。", "cost": "中远距离命中伤害 x0.75。", "effects": { "closeThreshold": 220, "closeDamageMultiplier": 1.5, "farDamageMultiplier": 0.75 } },
+    { "id": "last_candle", "label": "残烛契", "category": "risk", "iconKey": "sigil_last_candle", "benefit": "生命不高于 35% 时伤害 x1.65。", "cost": "高于阈值时伤害 x0.85。", "effects": { "hpThresholdRate": 0.35, "lowHpDamageMultiplier": 1.65, "highHpDamageMultiplier": 0.85 } },
+    { "id": "blood_prayer", "label": "血祷契", "category": "risk", "iconKey": "sigil_blood_prayer", "benefit": "技能后 4 秒内射速 x1.5、移动 x1.25。", "cost": "每次技能消耗 8 生命；会降至 1 以下时原子拒绝。", "effects": { "buffDuration": 4, "buffShotsPerSecondMultiplier": 1.5, "buffMovementSpeedMultiplier": 1.25, "skillHpCost": 8, "minimumHpAfterCost": 1 } }
+  ]
+}

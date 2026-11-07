@@ -1,0 +1,6 @@
+{
+  "name":"EmberBolt", "script":"CombatProjectile", "tags":["runtime","projectile","player_projectile","damaging"],
+  "visual":{"type":"image","texture":"ember_bolt","width":20,"height":10},
+  "collider":{"body":"dynamic","pivot":[0.5,0.5],"gravity":false},
+  "config":{"ownerSide":"player"}
+}

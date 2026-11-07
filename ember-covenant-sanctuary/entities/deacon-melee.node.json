@@ -1,0 +1,6 @@
+{
+  "name":"DeaconMelee", "script":"TelegraphedArea", "tags":["runtime","damaging"],
+  "visual":{"type":"image","texture":"deacon_warning","width":150,"height":120},
+  "collider":{"body":"dynamic","immovable":true,"pivot":[0.5,0.5],"gravity":false},
+  "config":{"warningDuration":0.01,"activeDuration":0.22,"impactTexture":"deacon_impact","damage":25,"sourceKind":"Dusk Deacon area"}
+}

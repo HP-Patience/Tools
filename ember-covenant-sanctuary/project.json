@@ -1,0 +1,27 @@
+{
+  "name": "ember-covenant-sanctuary",
+  "version": "0.1.0",
+  "engine": "vibegame@0.1.0",
+  "settings": {
+    "width": 1280,
+    "height": 720,
+    "scaleMode": "FIT",
+    "pixelArt": true,
+    "backgroundColor": "#111218",
+    "physics": {
+      "gravity": { "x": 0, "y": 0 },
+      "debug": false
+    }
+  },
+  "startScene": "scenes/main.scene.json",
+  "manifests": ["assets/manifest.json"],
+  "inputMap": "config/input-map.json",
+  "releaseExtraRoots": [
+    "entities/",
+    "maps/",
+    "modules/",
+    "nodes/",
+    "assets/fonts/fusion-pixel/fusion-pixel-12px-proportional-zh_hans.ttf.woff2",
+    "assets/fonts/fusion-pixel/OFL.txt"
+  ]
+}

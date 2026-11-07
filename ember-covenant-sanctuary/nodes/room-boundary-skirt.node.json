@@ -1,0 +1,14 @@
+{
+  "name": "RoomBoundarySkirt",
+  "tags": ["room_visual", "camera_boundary_fill"],
+  "visual": {
+    "type": "image",
+    "texture": "room_boundary_skirt",
+    "width": 1280,
+    "height": 16
+  },
+  "config": {
+    "x": 640,
+    "y": 720
+  }
+}

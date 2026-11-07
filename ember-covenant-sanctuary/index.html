@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>烬契圣堂</title>
+  <link rel="preload" href="./assets/fonts/fusion-pixel/fusion-pixel-12px-proportional-zh_hans.ttf.woff2" as="font" type="font/woff2" crossorigin>
+  <style>
+    @font-face { font-family:FusionPixel; src:url("./assets/fonts/fusion-pixel/fusion-pixel-12px-proportional-zh_hans.ttf.woff2") format("woff2"); font-display:swap; font-weight:400; }
+    :root { --ink:#131419; --charcoal:#24252b; --bone:#ddd2bd; --ember:#f0bd55; --blood:#b94743; --moss:#52906e; --violet:#7a5c87; }
+    * { margin:0; padding:0; box-sizing:border-box; letter-spacing:0; }
+    body { background:#090a0d; display:flex; justify-content:center; align-items:center; min-height:100vh; overflow:hidden; font-family:FusionPixel,monospace; color:var(--bone); }
+    #game-container { position:relative; width:min(100vw,calc(100vh * 16 / 9)); aspect-ratio:16/9; overflow:hidden; box-shadow:0 0 0 1px #332f36,0 20px 60px #000; }
+    #game-container canvas { display: block; }
+    #sanctuary-hud { position:absolute; inset:0; pointer-events:none; z-index:30; }
+    .hud-left { position:absolute; left:4.53125%; top:8.194444%; width:250px; display:grid; gap:5px; text-shadow:0 2px 2px #000; }
+    #hp-number { font:700 18px/1.1 FusionPixel,monospace; color:#f2e8d0; }
+    #skill-status { width:max-content; max-width:250px; padding:4px 9px; display:flex; align-items:center; gap:7px; border-left:3px solid var(--ember); background:rgba(19,20,25,.82); font:700 15px/1.1 FusionPixel,monospace; }
+    #pureflame-icon { width:25px; height:25px; object-fit:contain; }
+    .sigil-list { position:absolute; top:3.333333%; right:2.1875%; display:flex; justify-content:flex-end; gap:8px; max-width:440px; }
+    .empty-sigils { padding:7px 11px; color:#958f89; background:rgba(19,20,25,.78); border:1px solid #464149; font:14px/1.2 FusionPixel,monospace; }
+    .sigil-chip { width:44px; height:44px; border:1px solid #a67b43; color:#f2d585; background:#29242d; pointer-events:auto; cursor:help; font:700 13px/1 FusionPixel,monospace; }
+    .sigil-chip img { width:100%; height:100%; object-fit:contain; }
+    .owned-sigil-detail { position:absolute; top:10.833333%; right:2.1875%; width:310px; padding:12px 14px; display:none; gap:5px; background:rgba(20,20,24,.96); border:1px solid #8e714b; font:13px/1.4 FusionPixel,monospace; overflow-wrap:anywhere; }
+    .owned-sigil-detail.is-visible { display:grid; }.owned-sigil-detail strong { color:#f1d389; }.owned-sigil-detail span { color:#cbc1b5; }
+    .room-intro,.toast { position:absolute; left:50%; transform:translateX(-50%); opacity:0; transition:opacity .16s; background:rgba(18,18,22,.9); border-block:1px solid #9b7546; color:#f4dfac; white-space:nowrap; }
+    .room-intro { top:11.388889%; padding:10px 38px; font-size:22px; }
+    .toast { bottom:10.833333%; padding:8px 24px; font:700 16px/1.2 FusionPixel,monospace; }
+    .room-intro.is-visible,.toast.is-visible { opacity:1; }
+    .boss-label { position:absolute; left:50%; bottom:7.638889%; transform:translateX(-50%); opacity:0; font:700 17px/1.2 FusionPixel,monospace; color:#ead7da; }
+    .boss-label.is-visible { opacity:1; }
+    .aim-reticle { position:absolute; width:34px; height:34px; object-fit:contain; transform:translate(-50%,-50%); filter:drop-shadow(0 0 4px #000); }
+    .aim-reticle[data-band="close"] { transform:translate(-50%,-50%) scale(1.12); }
+    .aim-reticle[data-band="far"] { transform:translate(-50%,-50%) scale(.9); }
+    .damage-number { position:absolute; transform:translate(-50%,-50%); display:flex; align-items:flex-start; gap:3px; color:#fff0a0; text-shadow:0 2px 0 #401d22; font:900 24px/1 FusionPixel,monospace; white-space:nowrap; pointer-events:none; will-change:transform,opacity; }
+    .damage-number-count { padding-top:1px; color:#f0bd55; font:700 13px/1 FusionPixel,monospace; }
+    .route-label { position:absolute; transform:translate(-50%,0); width:250px; padding:9px 12px; display:grid; gap:3px; background:rgba(18,19,23,.9); border-top:2px solid var(--moss); text-align:center; }
+    .route-label.elite { border-color:var(--blood); }
+    .route-label strong { color:#f1d89e; font-size:17px; }.route-label span { color:#c8c0b5; font:13px/1.35 FusionPixel,monospace; }
+    [id^="vg-menu-"] h2 { font-size:32px!important; }
+    [id^="vg-menu-"] [id$="-panel"] { border:2px solid #9c774b; box-shadow:0 16px 50px #000; background-color:transparent!important; background-size:100% 100%!important; }
+    [id^="vg-menu-"] button { border:1px solid #b38a54!important; background-color:transparent!important; background-size:100% 100%!important; font-family:FusionPixel,monospace!important; }
+    #upgrade-overlay { position:absolute; inset:0; z-index:45; display:flex; align-items:center; justify-content:center; background:rgba(8,9,12,.88); pointer-events:auto; }
+    .up-stage { width:1080px; max-width:94%; display:grid; gap:20px; text-align:center; }
+    .up-eyebrow { color:#bc8f50; font:700 13px/1 FusionPixel,monospace; }
+    .up-title { margin-top:8px; color:#f4d987; font-size:34px; }
+    .up-subtitle,.up-footer { color:#aca49b; font:14px/1.4 FusionPixel,monospace; }
+    .up-cards { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; }
+    .up-card { --card-accent:var(--ember); height:400px; min-width:0; padding:24px 24px 18px; border:1px solid #725b47; color:var(--bone); cursor:pointer; display:flex; flex-direction:column; align-items:stretch; gap:10px; position:relative; background-color:transparent; background-size:100% 100%; overflow:hidden; font-family:FusionPixel,monospace; transition:transform 120ms ease-out,border-color 120ms ease-out,filter 120ms ease-out,box-shadow 120ms ease-out; }
+    .up-card:hover,.up-card:focus-visible { border-color:var(--card-accent); filter:brightness(1.12); transform:translateY(-3px); box-shadow:0 0 0 2px rgba(240,189,85,.22),0 8px 24px rgba(0,0,0,.42); outline:none; }
+    .up-card.is-detail { border-color:var(--card-accent); filter:brightness(1.16); transform:translateY(-3px); box-shadow:0 0 0 3px var(--card-accent),0 8px 28px rgba(0,0,0,.5); }
+    .up-card:active,.up-card.is-active { transform:translateY(0); filter:brightness(1.28); }
+    .up-card-band { position:absolute; left:0; right:0; top:0; height:7px; background:var(--card-accent); }
+    .up-card[data-cat="survival"] { --card-accent:var(--moss); }
+    .up-card[data-cat="risk"] { --card-accent:var(--blood); }
+    .up-card-icon { width:68px; height:68px; align-self:center; color:#f0c060; }
+    .up-card-icon img { width:100%; height:100%; object-fit:contain; }
+    .up-card-label { font-size:22px; line-height:1.15; color:#f5dfae; text-align:center; }
+    .up-card-desc { width:100%; min-height:0; flex:1; display:grid; grid-template-rows:1fr 1fr auto; gap:7px; overflow-wrap:anywhere; font:15px/1.4 FusionPixel,monospace; color:#d1c9bf; text-align:left; }
+    .up-card-term { min-height:0; padding:9px 10px; display:grid; grid-template-columns:42px minmax(0,1fr); align-content:center; gap:7px; border-left:2px solid var(--card-accent); background:rgba(7,8,10,.76); }
+    .up-card-term-label { color:var(--card-accent); }
+    .up-card-term-copy { color:#e0d8ca; }
+    .up-card-term.is-duration { grid-template-columns:42px minmax(0,1fr); background:rgba(30,27,25,.88); }
+    .up-card-key { width:100%; min-height:42px; padding:7px 12px; display:flex; align-items:center; justify-content:center; gap:9px; border:1px solid var(--card-accent); color:#fff0bd; background:rgba(38,32,29,.94); box-shadow:inset 0 0 0 1px rgba(255,255,255,.06); font-size:15px; line-height:1; }
+    .up-card-key-index { width:24px; height:24px; flex:0 0 24px; display:grid; place-items:center; border:1px solid currentColor; color:var(--card-accent); }
+    .up-card-key-label { min-width:0; min-height:1em; flex:1 1 0; align-self:stretch; display:grid; place-items:center; white-space:normal; overflow-wrap:anywhere; text-align:center; }
+    .up-card:hover .up-card-key,.up-card:focus-visible .up-card-key,.up-card.is-detail .up-card-key { color:#17130d; background:var(--card-accent); }
+    .up-card:hover .up-card-key-index,.up-card:focus-visible .up-card-key-index,.up-card.is-detail .up-card-key-index { color:#17130d; }
+    .up-footer:empty { display:none; }
+    #game-container:has(#upgrade-overlay) #vibegame-ui .room-intro,#game-container:has(#upgrade-overlay) #vibegame-ui .toast { opacity:0!important; }
+    #touch-controls { position:absolute; inset:0; z-index:35; display:none; pointer-events:none; font:700 14px/1 FusionPixel,monospace; }
+    #touch-controls.is-visible { display:block; }
+    #touch-controls button,.touch-aim { pointer-events:auto; touch-action:none; user-select:none; border:1px solid rgba(240,189,85,.72); color:#f4dfae; background:rgba(23,24,29,.72); }
+    .touch-dpad { position:absolute; left:2.5%; bottom:3.888889%; width:178px; height:178px; }
+    .touch-dpad button { position:absolute; width:58px; height:58px; }
+    .touch-dpad .north { left:60px; top:0; }.touch-dpad .west { left:0; top:60px; }.touch-dpad .east { right:0; top:60px; }.touch-dpad .south { left:60px; bottom:0; }
+    .touch-aim { position:absolute; right:2.1875%; bottom:4.166667%; width:180px; height:180px; border-radius:50%; display:grid; place-items:center; }
+    .touch-command { position:absolute; width:74px; height:52px; }
+    .touch-command.skill { right:17.65625%; bottom:5%; }.touch-command.interact { right:17.65625%; bottom:13.611111%; }.touch-command.pause { right:1.5625%; top:2.777778%; width:52px; }
+    @media (pointer:coarse),(max-width:760px) { #touch-controls { display:block; } .hud-left { left:2.1875%; top:7.5%; } #game-container #vibegame-ui .sigil-list,#game-container #vibegame-ui .owned-sigil-detail { right:calc(2.1875% + 64px); } }
+    #game-container:has(#touch-controls:is(.is-visible,.is-choice-layout)) #vibegame-ui .sigil-list,
+    #game-container:has(#touch-controls:is(.is-visible,.is-choice-layout)) #vibegame-ui .owned-sigil-detail { right:calc(2.1875% + 64px); }
+    #game-container:has(#touch-controls:is(.is-visible,.is-choice-layout)) #upgrade-overlay .up-stage { width:min(660px,calc(100% - 12px)); max-width:none; gap:12px; }
+    #game-container:has(#touch-controls:is(.is-visible,.is-choice-layout)) #upgrade-overlay .up-cards { gap:8px; }
+    #game-container:has(#touch-controls:is(.is-visible,.is-choice-layout)) #upgrade-overlay .up-card { height:430px; padding:20px 7px 10px; gap:7px; }
+    #game-container:has(#touch-controls:is(.is-visible,.is-choice-layout)) #upgrade-overlay .up-card-icon { width:48px; height:48px; }
+    #game-container:has(#touch-controls:is(.is-visible,.is-choice-layout)) #upgrade-overlay .up-card-label { font-size:18px; }
+    #game-container:has(#touch-controls:is(.is-visible,.is-choice-layout)) #upgrade-overlay .up-card-desc { gap:5px; font-size:14px; line-height:1.42; }
+    #game-container:has(#touch-controls:is(.is-visible,.is-choice-layout)) #upgrade-overlay .up-card-term { padding:7px 6px; display:block; }
+    #game-container:has(#touch-controls:is(.is-visible,.is-choice-layout)) #upgrade-overlay .up-card-term-label { display:block; margin-bottom:3px; }
+    #game-container:has(#touch-controls:is(.is-visible,.is-choice-layout)) #upgrade-overlay .up-card-key { min-height:42px; padding:6px 5px; gap:5px; font-size:13px; }
+    #game-container:has(#touch-controls:is(.is-visible,.is-choice-layout)) #upgrade-overlay .up-card-key-index { width:22px; height:22px; flex-basis:22px; }
+  </style>
+  <!-- crossorigin="anonymous" lets the browser surface full stack traces from
+       Phaser instead of collapsing them into "Script error." (CORS rule for
+       cross-origin scripts). Without it, runtime errors thrown inside Phaser
+       are unobservable, which has caused multi-agent misdiagnosis. -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js" crossorigin="anonymous"></script>
+  <script>window.__APP_CONFIG__ = window.__APP_CONFIG__ || { appBasePath: '', apiBaseUrl: '' }</script>
+</head>
+<body>
+  <div id="game-container"></div>
+
+  <script type="module">
+    // Keep engine boot unconditional.
+    // UI may gate gameplay, but must not bypass or replace boot.
+    const cfg = window.__APP_CONFIG__ || {}
+    const base = String(cfg.appBasePath || '').replace(/\/+$/, '')
+    const { boot } = await import(`${base}/engine/boot.js`)
+    boot(document.getElementById('game-container'))
+  </script>
+</body>
+</html>

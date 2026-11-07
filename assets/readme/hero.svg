@@ -1,19 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400" role="img" aria-labelledby="hero-title hero-desc">
-  <title id="hero-title">Tools：11 个日常工具，一个仓库</title>
-  <desc id="hero-desc">左侧是仓库名与说明：11 个工具放在同一个目录，各自有独立的 README 与运行环境，克隆一次即可全部取到。右侧是工具索引，逐条标出所属技术栈。</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="430" viewBox="0 0 1200 430" role="img" aria-labelledby="hero-title hero-desc">
+  <title id="hero-title">Tools：12 个日常工具，一个仓库</title>
+  <desc id="hero-desc">左侧是仓库名与说明：12 个工具放在同一个目录，各自有独立的 README 与运行环境，克隆一次即可全部取到。右侧是工具索引，逐条标出所属技术栈。</desc>
 
-  <rect width="1200" height="400" rx="22" fill="#0b0f14"/>
+  <rect width="1200" height="430" rx="22" fill="#0b0f14"/>
 
   <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif">
     <text x="56" y="60" font-size="17" letter-spacing="2" fill="#6b7482" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">TOOLS / INDEX</text>
     <text x="54" y="166" font-size="84" font-weight="800" letter-spacing="-2" fill="#f4f1ea">Tools</text>
-    <text x="56" y="216" font-size="28" font-weight="600" fill="#e3ded4">日常 AI 工具索引</text>
-    <text x="56" y="258" font-size="19" fill="#9aa3b0">11 个工具放在一个目录里，</text>
+    <text x="56" y="216" font-size="28" font-weight="600" fill="#e3ded4">日常工具索引</text>
+    <text x="56" y="258" font-size="19" fill="#9aa3b0">12 个工具放在一个目录里，</text>
     <text x="56" y="286" font-size="19" fill="#9aa3b0">克隆一次就能拿到全部。</text>
-    <text x="56" y="344" font-size="17" fill="#6b7482" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">11 tools · 11 READMEs · 1 clone</text>
+    <text x="56" y="344" font-size="17" fill="#6b7482" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">12 tools · 12 READMEs · 1 clone</text>
   </g>
 
-  <line x1="528" y1="48" x2="528" y2="360" stroke="#1a222c"/>
+  <line x1="528" y1="48" x2="528" y2="385" stroke="#1a222c"/>
 
   <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'PingFang SC', 'Microsoft YaHei', monospace">
     <text x="568" y="58" font-size="16" letter-spacing="2" fill="#6b7482">INDEX</text>
@@ -31,6 +31,7 @@
       <text x="568" y="300">09</text>
       <text x="568" y="325">10</text>
       <text x="568" y="350">11</text>
+      <text x="568" y="375">12</text>
     </g>
 
     <g font-size="19.5" fill="#e8e5de">
@@ -45,6 +46,7 @@
       <text x="606" y="300">ai-subscription-manager</text>
       <text x="606" y="325">Taskleaf-Kanban</text>
       <text x="606" y="350">knowledge-map</text>
+      <text x="606" y="375">ember-covenant-sanctuary</text>
     </g>
 
     <g font-size="18" text-anchor="end" fill="#7d8794">
@@ -59,6 +61,7 @@
       <text x="1144" y="300">React</text>
       <text x="1144" y="325">原生 JS</text>
       <text x="1144" y="350">TypeScript</text>
+      <text x="1144" y="375">Phaser 3</text>
     </g>
 
     <g stroke="#161d27">
@@ -73,6 +76,7 @@
       <line x1="568" y1="308" x2="1144" y2="308"/>
       <line x1="568" y1="333" x2="1144" y2="333"/>
       <line x1="568" y1="358" x2="1144" y2="358"/>
+      <line x1="568" y1="383" x2="1144" y2="383"/>
     </g>
   </g>
 </svg>

@@ -1,0 +1,15 @@
+{
+  "name": "FallenBishop", "script": "FallenBishop", "tags": ["runtime","enemy","boss"],
+  "visual": { "type": "atlas", "texture": "fallen_bishop", "frame": "idle_0", "width": 96, "height": 116 },
+  "collider": { "shape": "circle", "radius": 48, "body": "dynamic", "host": "separate", "pivot": [0.5,0.5], "gravity": false, "worldBounds": true },
+  "animations": { "default": "idle", "clips": {
+    "idle": { "frames": ["idle_0","idle_1","idle_2","idle_3"], "frameRate": 5 },
+    "move": { "frames": ["move_0","move_1","move_2","move_3"], "frameRate": 7 },
+    "melee-attack": { "frames": ["melee-attack_0","melee-attack_1","melee-attack_2","melee-attack_3"], "frameRate": 7, "loop": false },
+    "ranged-attack": { "frames": ["ranged-attack_0","ranged-attack_1","ranged-attack_2","ranged-attack_3"], "frameRate": 7, "loop": false },
+    "summon": { "frames": ["summon_0","summon_1","summon_2","summon_3"], "frameRate": 6, "loop": false },
+    "phase-transition": { "frames": ["phase-transition_0","phase-transition_1","phase-transition_2","phase-transition_3"], "frameRate": 5, "loop": false },
+    "death": { "frames": ["death_0","death_1","death_2","death_3"], "frameRate": 4, "loop": false }
+  }},
+  "config": { "kind":"fallen_bishop", "hp":1500, "speed":65, "attackRange":210, "adjustTolerance":35, "slamCharge":1.0, "slamActive":0.25, "slamOffset":78, "spearCharge":0.9, "spearFanAngles":[-0.32,0,0.32], "ritualCharge":1.2, "ritualActive":0.45, "ritualRouteCount":2, "phaseThreshold":0.5, "phase2CycleLength":3, "ritualCycleSlot":2, "maxConsecutiveRanged":2, "closeRangedLimit":1, "recoveryDuration":1.0, "damagePollInterval":0.05, "transitionDuration":1.5, "attackHistoryLimit":12, "deathDuration":2.0, "moveClip":"move" }
+}

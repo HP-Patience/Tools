@@ -1,0 +1,83 @@
+{
+  "name": "Main",
+  "root": {
+    "name": "Root", "script": "RunDirector",
+    "config": {
+      "ordinaryLayouts": ["central-altar","twin-column-hall","broken-pew-lanes","side-aisle-crypt"],
+      "stageDefs": {
+        "1":{"layout":"open-vestibule","name":"熄火门廊","kind":"combat","waves":{"1":[{"type":"fang","count":2}]}},
+        "2":{"layoutOrderIndex":0,"name":"冷烛侧殿","kind":"combat","waves":{"1":[{"type":"acolyte","count":3}]}},
+        "3":{"layoutOrderIndex":1,"name":"破誓回廊","kind":"combat","waves":{"1":[{"type":"fang","count":2},{"type":"acolyte","count":2}]}},
+        "4":{"layout":"route-junction","name":"岔路","kind":"route"},
+        "5":{"layoutOrderIndex":2,"name":"黯光中殿","kind":"combat","waves":{"1":[{"type":"fang","count":3},{"type":"acolyte","count":2}]}},
+        "6":{"layoutOrderIndex":3,"name":"火种前庭","kind":"combat","waves":{"1":[{"type":"fang","count":2},{"type":"acolyte","count":2}],"2":[{"type":"fang","count":2},{"type":"acolyte","count":3}]}},
+        "7":{"layout":"extinguished-sanctum","name":"熄灭圣坛","kind":"boss","waves":{"1":[{"type":"bishop","count":1}]}}
+      },
+      "routeOptions": [
+        {"id":"recovery","label":"息烬祭台","consequence":"恢复 35 HP，无契印","heal":35,"sigilReward":false,"nextStage":5},
+        {"id":"elite","label":"暮祷密室","consequence":"精英战，胜利恢复 10 HP并获得契印","heal":10,"sigilReward":true,"roster":[{"type":"deacon","count":1}]}
+      ],
+      "timings":{"title":1.2,"waveWarning":1.0,"deathPresentation":1.0,"victoryPresentation":2.0},
+      "sigilOfferCount":3,
+      "waveSpawnGap":200,
+      "waveWarningPosition":{"x":640,"y":210},
+      "cameraShake":{"durationMs":90,"intensity":0.003},
+      "combatBoundsInset":48,
+      "knockbackStep":16,
+      "facingDeadzone":0.001,
+      "hitFlash":{"duration":0.12,"tint":16769690,"clearTint":16777215},
+      "depths":{"warning":35,"character":30,"projectile":40,"feedback":45}
+    },
+    "children": [
+      { "name":"Room", "script":"RoomController", "config":{
+        "mapFiles":{"open-vestibule":"maps/open-vestibule.tilemap.json","central-altar":"maps/central-altar.tilemap.json","twin-column-hall":"maps/twin-column-hall.tilemap.json","broken-pew-lanes":"maps/broken-pew-lanes.tilemap.json","side-aisle-crypt":"maps/side-aisle-crypt.tilemap.json","route-junction":"maps/route-junction.tilemap.json","extinguished-sanctum":"maps/extinguished-sanctum.tilemap.json"},
+        "layers":[{"name":"floor","z":0,"collision":false},{"name":"face","z":5,"collision":true},{"name":"top","z":20,"collision":false}],
+        "initiallyOpenLayouts":["route-junction","extinguished-sanctum"],
+        "propDepth":16,"decorDepth":3,"victoryDepth":18
+      }, "children":[
+        { "name":"TileMap", "script":"TileMap", "config":{"tileset":"sanctuary_tiles","tileSize":32} },
+        { "name":"RoomBoundarySkirt", "src":"nodes/room-boundary-skirt.node.json" }
+      ]},
+      { "name":"Input", "script":"CombatInput", "config":{"initialAim":{"xRate":0.5,"yRate":0.5}} },
+      { "name":"EmberKeeper", "src":"entities/player.node.json" },
+      { "name":"PlayerBar", "src":"nodes/hud-player-bar.node.json" },
+      { "name":"BossBar", "src":"nodes/hud-boss-bar.node.json" },
+      { "name":"Overlay", "script":"SanctuaryOverlay", "tags":["overlay"], "config":{"style":{"containerId":"game-container","panelWidth":420,"panelHeight":300,"titleColor":"#f4d47b","subtitleColor":"#c9bdad","hurtFlashColor":"rgba(190,45,38,0.30)"},"surfaceKeys":{"panel":"ui_panel","buttonIdle":"ui_button_idle","buttonHover":"ui_button_hover"}} },
+      { "name":"SigilChoice", "script":"SigilChoiceController", "config":{"mountSelector":"#game-container","cardSurfaceKey":"ui_sigil_card","strings":{"eyebrow":"战斗房已净化","title":"选择双面契印","subtitle":"增益与代价同样生效，仅持续本局","footer":""}} },
+      { "name":"HUD", "script":"HudController", "config":{"introDuration":1.1,"toastDuration":1.1,"damageNumberDuration":1.2,"damageNumberRise":40,"damageNumberLimit":12,"damageNumberClusterRadius":64,"damageNumberOffset":{"x":44,"y":-52},"routeLabelOffset":74,"timerPrecision":1} },
+
+      { "name":"TemplateShadowFang", "src":"entities/shadow-fang.node.json", "enabled":false },
+      { "name":"TemplateShadowAcolyte", "src":"entities/shadow-acolyte.node.json", "enabled":false },
+      { "name":"TemplateDuskDeacon", "src":"entities/dusk-deacon.node.json", "enabled":false },
+      { "name":"TemplateFallenBishop", "src":"entities/fallen-bishop.node.json", "enabled":false },
+      { "name":"TemplateEmberBolt", "src":"entities/ember-bolt.node.json", "enabled":false },
+      { "name":"TemplateShadowDart", "src":"entities/shadow-dart.node.json", "enabled":false },
+      { "name":"TemplateShadowSpear", "src":"entities/shadow-spear.node.json", "enabled":false },
+      { "name":"TemplateFangMelee", "src":"entities/fang-melee.node.json", "enabled":false },
+      { "name":"TemplateDeaconMelee", "src":"entities/deacon-melee.node.json", "enabled":false },
+      { "name":"TemplateBishopSlam", "src":"entities/bishop-slam.node.json", "enabled":false },
+      { "name":"TemplateRitualArea", "src":"entities/ritual-area.node.json", "enabled":false },
+      { "name":"TemplateExit", "src":"entities/exit.node.json", "enabled":false },
+      { "name":"TemplateRecovery", "src":"entities/route-recovery.node.json", "enabled":false },
+      { "name":"TemplateElite", "src":"entities/route-elite.node.json", "enabled":false },
+      { "name":"TemplatePulse", "src":"entities/pureflame-pulse.node.json", "enabled":false },
+      { "name":"TemplateSpark", "src":"entities/hit-spark.node.json", "enabled":false },
+      { "name":"TemplateAsh", "src":"entities/ash-burst.node.json", "enabled":false },
+      { "name":"TemplateLastFlame", "src":"entities/last-flame.node.json", "enabled":false },
+      { "name":"TemplateEntryWarning", "src":"entities/entry-warning.node.json", "enabled":false },
+      { "name":"TemplateProjectileClear", "src":"entities/projectile-clear.node.json", "enabled":false },
+      { "name":"TemplateExtinguishedAltar", "src":"nodes/props/extinguished-altar.node.json", "enabled":false },
+      { "name":"TemplateStonePillar", "src":"nodes/props/stone-pillar.node.json", "enabled":false },
+      { "name":"TemplateBrokenPew", "src":"nodes/props/broken-pew.node.json", "enabled":false },
+      { "name":"TemplateGravestone", "src":"nodes/props/gravestone.node.json", "enabled":false },
+      { "name":"TemplateCollapsedWallH", "src":"nodes/props/collapsed-wall-h.node.json", "enabled":false },
+      { "name":"TemplateCollapsedWallV", "src":"nodes/props/collapsed-wall-v.node.json", "enabled":false },
+      { "name":"TemplateColdCandelabrum", "src":"nodes/props/cold-candelabrum.node.json", "enabled":false },
+      { "name":"TemplateOldDrapery", "src":"nodes/props/old-drapery.node.json", "enabled":false },
+      { "name":"TemplateWallRelief", "src":"nodes/props/wall-relief.node.json", "enabled":false },
+      { "name":"TemplateAshScatter", "src":"nodes/props/ash-scatter.node.json", "enabled":false },
+      { "name":"TemplateThinSmoke", "src":"nodes/props/thin-smoke.node.json", "enabled":false },
+      { "name":"TemplateVictoryBrazier", "src":"nodes/props/victory-brazier.node.json", "enabled":false }
+    ]
+  }
+}

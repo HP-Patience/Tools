@@ -1,0 +1,1 @@
+{"name":"HitSpark","script":"TimedImageVfxModule","tags":["runtime","vfx"],"visual":{"type":"image","texture":"hit_spark","width":34,"height":34},"config":{"texture":"hit_spark","ttl":0.25,"alphaStart":1,"alphaEnd":0,"scaleStart":0.6,"scaleEnd":1.4,"depth":40,"kind":"spark"}}

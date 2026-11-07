@@ -1,0 +1,19 @@
+{
+  "name": "EmberKeeper", "script": "PlayerController", "tags": ["player"],
+  "visual": { "type": "atlas", "texture": "ember_keeper", "frame": "idle_0", "width": 48, "height": 56 },
+  "collider": { "shape": "circle", "radius": 24, "body": "dynamic", "host": "separate", "pivot": [0.5,0.5], "gravity": false, "worldBounds": true },
+  "animations": { "default": "idle", "clips": {
+    "idle": { "frames": ["idle_0","idle_1","idle_2","idle_3"], "frameRate": 6 },
+    "run": { "frames": ["run_0","run_1","run_2","run_3"], "frameRate": 10 },
+    "attack": { "frames": ["attack_0","attack_1","attack_2","attack_3"], "frameRate": 12, "loop": false },
+    "skill": { "frames": ["skill_0","skill_1","skill_2","skill_3"], "frameRate": 10, "loop": false },
+    "death": { "frames": ["death_0","death_1","death_2","death_3"], "frameRate": 6, "loop": false }
+  }},
+  "config": {
+    "baseStats": { "maxHp":100, "movementSpeed":260, "shotDamage":20, "shotsPerSecond":3, "projectileSpeed":760, "pulseRadius":150, "pulseCooldown":8 },
+    "initialAimDirection": { "x":0, "y":-1 },
+    "aimDeadzone":0.001,
+    "muzzleOffset":34,
+    "pulseKnockback":128
+  }
+}
